@@ -1,6 +1,7 @@
 package cn.hollis.llm.mentor.werewolf.model;
 
 import java.util.List;
+import java.util.Map;
 
 public record WerewolfAnalysisRequest(
         Integer totalPlayers,
@@ -9,6 +10,7 @@ public record WerewolfAnalysisRequest(
         Integer myPlayerId,
         String myRoleHint,
         String winningObjective,
+        Map<String, Integer> roleComposition,
         List<PlayerSpeech> speeches,
         String extraContext
 ) {

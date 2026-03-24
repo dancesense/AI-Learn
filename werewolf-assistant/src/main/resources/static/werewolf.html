@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>狼人杀局势分析助手</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: #f5f7fb;
+            color: #1f2937;
+        }
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .title {
+            font-size: 24px;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            gap: 16px;
+        }
+        .card {
+            background: #ffffff;
+            border-radius: 12px;
+            border: 1px solid #e5e7eb;
+            padding: 16px;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+        }
+        .card h2 {
+            margin: 0 0 12px 0;
+            font-size: 18px;
+        }
+        .form-row {
+            margin-bottom: 10px;
+        }
+        label {
+            display: block;
+            font-size: 13px;
+            color: #4b5563;
+            margin-bottom: 4px;
+        }
+        input, select, textarea, button {
+            width: 100%;
+            box-sizing: border-box;
+            border-radius: 8px;
+            border: 1px solid #d1d5db;
+            padding: 8px 10px;
+            font-size: 14px;
+            background: white;
+        }
+        textarea {
+            resize: vertical;
+            min-height: 74px;
+        }
+        button {
+            border: none;
+            color: #ffffff;
+            background: #2563eb;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .secondary-btn {
+            background: #374151;
+        }
+        .muted-btn {
+            background: #6b7280;
+        }
+        .role-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+        }
+        .player-list {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+        .player-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 10px;
+            padding: 10px;
+            background: #fafafa;
+        }
+        .player-header {
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+        .status-line {
+            padding: 8px 10px;
+            border-radius: 8px;
+            font-size: 13px;
+            margin-bottom: 10px;
+            background: #eff6ff;
+            color: #1d4ed8;
+        }
+        .pill {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: #e5e7eb;
+            font-size: 12px;
+            margin-right: 6px;
+        }
+        .analysis-section h3 {
+            font-size: 15px;
+            margin: 14px 0 8px 0;
+        }
+        .analysis-box {
+            background: #f9fafb;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 10px;
+            font-size: 14px;
+            white-space: pre-wrap;
+            line-height: 1.45;
+        }
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        .table th, .table td {
+            border: 1px solid #e5e7eb;
+            padding: 6px 8px;
+            text-align: left;
+            vertical-align: top;
+        }
+        .table th {
+            background: #f3f4f6;
+        }
+        .timeline {
+            max-height: 220px;
+            overflow-y: auto;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 8px;
+            background: #fff;
+            font-size: 13px;
+        }
+        .timeline-item {
+            margin-bottom: 6px;
+            border-bottom: 1px dashed #e5e7eb;
+            padding-bottom: 6px;
+        }
+        .debug-box {
+            margin-top: 10px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background: #fff;
+            padding: 8px;
+        }
+        .debug-title {
+            font-size: 13px;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+        .debug-meta {
+            font-size: 12px;
+            color: #4b5563;
+            margin-bottom: 6px;
+            word-break: break-all;
+        }
+        .debug-log {
+            max-height: 120px;
+            overflow-y: auto;
+            font-size: 12px;
+            line-height: 1.4;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 6px;
+            background: #f9fafb;
+        }
+        .debug-log-item {
+            border-bottom: 1px dashed #d1d5db;
+            padding: 4px 0;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="title">狼人杀局势分析助手</div>
+    <div class="grid">
+        <div class="card">
+            <h2>赛前配置</h2>
+            <div class="form-row">
+                <label for="totalPlayers">总人数</label>
+                <select id="totalPlayers">
+                    <option value="6">6人场</option>
+                    <option value="12">12人场</option>
+                </select>
+            </div>
+            <div class="form-row">
+                <label for="gameMode">模式名称</label>
+                <input id="gameMode" value="6人标准局">
+            </div>
+            <div class="form-row">
+                <label for="myPlayerId">我是几号位</label>
+                <input id="myPlayerId" type="number" min="1" value="1">
+            </div>
+            <div class="form-row">
+                <label for="myRoleHint">我的身份提示</label>
+                <input id="myRoleHint" value="未知">
+            </div>
+            <div class="form-row">
+                <label for="winningObjective">我的目标</label>
+                <input id="winningObjective" value="提高自身生存与本阵营胜率">
+            </div>
+
+            <div class="form-row">
+                <label>角色构成（赛前）</label>
+                <div class="role-grid">
+                    <div><label>狼人</label><input id="role-werewolf" type="number" min="0" value="2"></div>
+                    <div><label>平民</label><input id="role-villager" type="number" min="0" value="2"></div>
+                    <div><label>预言家</label><input id="role-seer" type="number" min="0" value="1"></div>
+                    <div><label>女巫</label><input id="role-witch" type="number" min="0" value="1"></div>
+                    <div><label>猎人</label><input id="role-hunter" type="number" min="0" value="0"></div>
+                    <div><label>守卫</label><input id="role-guard" type="number" min="0" value="0"></div>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <label for="extraContext">额外上下文</label>
+                <textarea id="extraContext" placeholder="例如：警上有对跳，昨夜平安夜"></textarea>
+            </div>
+
+            <button id="startGameBtn">开始对局</button>
+            <div style="height: 8px;"></div>
+            <button id="nextRoundBtn" class="secondary-btn" disabled>进入下一轮</button>
+        </div>
+
+        <div class="card">
+            <h2>发言与分析</h2>
+            <div class="status-line" id="statusLine">请先完成左侧赛前配置，然后点击“开始对局”。</div>
+            <div style="margin-bottom: 10px;">
+                <span class="pill" id="roundInfo">第1轮</span>
+                <span class="pill" id="progressInfo">0/0 已提交</span>
+            </div>
+            <div class="debug-box">
+                <div class="debug-title">请求调试面板</div>
+                <div class="debug-meta" id="debugBaseUrl"></div>
+                <div class="debug-log" id="debugRequestLog">暂无请求记录</div>
+            </div>
+
+            <div class="player-list" id="playerSpeechContainer"></div>
+
+            <div style="height: 12px;"></div>
+            <button id="analyzeRoundBtn" class="muted-btn" disabled>全员发言完成后，执行本轮分析</button>
+
+            <div style="height: 12px;"></div>
+            <h3 style="margin: 8px 0;">实时发言记录</h3>
+            <div class="timeline" id="speechTimeline"></div>
+
+            <div class="analysis-section">
+                <h3>1) 我该怎么说（高胜率话术）</h3>
+                <div class="analysis-box" id="speechAdviceBox">暂无</div>
+
+                <h3>2) 玩家角色概率分析</h3>
+                <div id="roleTableBox" class="analysis-box">暂无</div>
+
+                <h3>3) 当前角色/阵营胜率（百分比）</h3>
+                <div id="winRateTableBox" class="analysis-box">暂无</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const state = {
+        gameStarted: false,
+        currentRound: 1,
+        totalPlayers: 0,
+        roundSpeeches: new Map(),
+        allSpeeches: []
+    };
+
+    const defaultRolesByPlayers = {
+        6: {werewolf: 2, villager: 2, seer: 1, witch: 1, hunter: 0, guard: 0},
+        12: {werewolf: 4, villager: 4, seer: 1, witch: 1, hunter: 1, guard: 1}
+    };
+
+    // 按用户要求写死后端地址，避免页面路径影响接口请求
+    const apiBasePrefix = "http://localhost:8012";
+
+    function apiUrl(path) {
+        const normalized = path.startsWith("/") ? path : ("/" + path);
+        return apiBasePrefix + normalized;
+    }
+
+    const el = {
+        totalPlayers: document.getElementById("totalPlayers"),
+        gameMode: document.getElementById("gameMode"),
+        myPlayerId: document.getElementById("myPlayerId"),
+        myRoleHint: document.getElementById("myRoleHint"),
+        winningObjective: document.getElementById("winningObjective"),
+        extraContext: document.getElementById("extraContext"),
+        startGameBtn: document.getElementById("startGameBtn"),
+        nextRoundBtn: document.getElementById("nextRoundBtn"),
+        analyzeRoundBtn: document.getElementById("analyzeRoundBtn"),
+        statusLine: document.getElementById("statusLine"),
+        roundInfo: document.getElementById("roundInfo"),
+        progressInfo: document.getElementById("progressInfo"),
+        playerSpeechContainer: document.getElementById("playerSpeechContainer"),
+        speechTimeline: document.getElementById("speechTimeline"),
+        debugBaseUrl: document.getElementById("debugBaseUrl"),
+        debugRequestLog: document.getElementById("debugRequestLog"),
+        speechAdviceBox: document.getElementById("speechAdviceBox"),
+        roleTableBox: document.getElementById("roleTableBox"),
+        winRateTableBox: document.getElementById("winRateTableBox")
+    };
+
+    function nowTime() {
+        return new Date().toLocaleTimeString("zh-CN", {hour12: false});
+    }
+
+    function appendRequestLog(text) {
+        if (!el.debugRequestLog) {
+            return;
+        }
+        if (el.debugRequestLog.textContent === "暂无请求记录") {
+            el.debugRequestLog.innerHTML = "";
+        }
+        const item = document.createElement("div");
+        item.className = "debug-log-item";
+        item.textContent = text;
+        el.debugRequestLog.prepend(item);
+    }
+
+    function readRoleComposition() {
+        return {
+            狼人: Number(document.getElementById("role-werewolf").value || 0),
+            平民: Number(document.getElementById("role-villager").value || 0),
+            预言家: Number(document.getElementById("role-seer").value || 0),
+            女巫: Number(document.getElementById("role-witch").value || 0),
+            猎人: Number(document.getElementById("role-hunter").value || 0),
+            守卫: Number(document.getElementById("role-guard").value || 0)
+        };
+    }
+
+    function applyDefaultRoleComposition(totalPlayers) {
+        const target = defaultRolesByPlayers[totalPlayers];
+        if (!target) return;
+        document.getElementById("role-werewolf").value = target.werewolf;
+        document.getElementById("role-villager").value = target.villager;
+        document.getElementById("role-seer").value = target.seer;
+        document.getElementById("role-witch").value = target.witch;
+        document.getElementById("role-hunter").value = target.hunter;
+        document.getElementById("role-guard").value = target.guard;
+        el.gameMode.value = totalPlayers + "人标准局";
+    }
+
+    function buildBaseRequest() {
+        return {
+            totalPlayers: state.totalPlayers,
+            gameMode: el.gameMode.value,
+            phase: "第" + state.currentRound + "轮白天发言",
+            myPlayerId: Number(el.myPlayerId.value || 0),
+            myRoleHint: el.myRoleHint.value,
+            winningObjective: el.winningObjective.value,
+            roleComposition: readRoleComposition(),
+            speeches: state.allSpeeches,
+            extraContext: el.extraContext.value
+        };
+    }
+
+    async function postJson(url, body) {
+        appendRequestLog("[" + nowTime() + "] 请求 -> POST " + url);
+        const resp = await fetch(url, {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify(body)
+        });
+        if (!resp.ok) {
+            const text = await resp.text();
+            appendRequestLog("[" + nowTime() + "] 失败 <- " + resp.status + " " + url);
+            const err = new Error("调用失败(" + resp.status + "): " + text);
+            err.status = resp.status;
+            throw err;
+        }
+        appendRequestLog("[" + nowTime() + "] 成功 <- " + resp.status + " " + url);
+        return resp.json();
+    }
+
+    function is404(err) {
+        return err && Number(err.status) === 404;
+    }
+
+    function updateStatus(text) {
+        el.statusLine.textContent = text;
+    }
+
+    function updateProgress() {
+        el.roundInfo.textContent = "第" + state.currentRound + "轮";
+        el.progressInfo.textContent = state.roundSpeeches.size + "/" + state.totalPlayers + " 已提交";
+        const finished = state.roundSpeeches.size >= state.totalPlayers;
+        el.analyzeRoundBtn.disabled = !finished;
+        el.nextRoundBtn.disabled = !finished;
+    }
+
+    function appendTimeline(playerId, speech) {
+        const div = document.createElement("div");
+        div.className = "timeline-item";
+        div.textContent = "第" + state.currentRound + "轮 - 玩家" + playerId + "：" + speech;
+        el.speechTimeline.prepend(div);
+    }
+
+    function renderPlayerInputs() {
+        el.playerSpeechContainer.innerHTML = "";
+        for (let i = 1; i <= state.totalPlayers; i++) {
+            const card = document.createElement("div");
+            card.className = "player-card";
+            card.innerHTML = `
+                <div class="player-header">玩家${i}</div>
+                <textarea id="speech-${i}" placeholder="输入玩家${i}本轮发言"></textarea>
+                <div style="height:6px;"></div>
+                <button id="submit-${i}">提交玩家${i}发言</button>
+            `;
+            el.playerSpeechContainer.appendChild(card);
+
+            const btn = card.querySelector("#submit-" + i);
+            btn.addEventListener("click", async () => {
+                const ta = card.querySelector("#speech-" + i);
+                const speech = ta.value.trim();
+                if (!speech) {
+                    alert("请先填写发言内容");
+                    return;
+                }
+                if (state.roundSpeeches.has(i)) {
+                    alert("该玩家本轮已提交");
+                    return;
+                }
+                state.roundSpeeches.set(i, speech);
+                state.allSpeeches.push({playerId: i, speech: "[第" + state.currentRound + "轮] " + speech});
+                ta.disabled = true;
+                btn.disabled = true;
+                appendTimeline(i, speech);
+                updateProgress();
+                updateStatus("已记录玩家" + i + "发言，正在做实时身份概率更新...");
+                await runRealtimeRoleAnalysis();
+
+                if (state.roundSpeeches.size >= state.totalPlayers) {
+                    updateStatus("本轮全员发言已完成，正在执行本轮完整分析...");
+                    await runRoundFullAnalysis();
+                } else {
+                    updateStatus("继续收集其余玩家发言...");
+                }
+            });
+        }
+    }
+
+    function renderRoleAnalysis(data) {
+        if (!data || !Array.isArray(data.playerAssessments) || data.playerAssessments.length === 0) {
+            el.roleTableBox.textContent = "暂无有效角色概率结果";
+            return;
+        }
+        let html = '<table class="table"><tr><th>玩家</th><th>高概率身份</th><th>置信度</th><th>概率分布(Top)</th><th>依据</th></tr>';
+        for (const item of data.playerAssessments) {
+            const probs = (item.roleProbabilities || [])
+                .slice(0, 3)
+                .map(p => `${p.role}:${Math.round((p.probability || 0) * 100)}%`)
+                .join(" / ");
+            const evidence = (item.keyEvidence || []).join("；");
+            html += `<tr>
+                <td>${item.playerId ?? "-"}</td>
+                <td>${item.likelyRole ?? "-"}</td>
+                <td>${Math.round((item.confidence || 0) * 100)}%</td>
+                <td>${probs || "-"}</td>
+                <td>${evidence || "-"}</td>
+            </tr>`;
+        }
+        html += "</table>";
+        el.roleTableBox.innerHTML = html;
+    }
+
+    function renderWinRates(data) {
+        if (!data || !Array.isArray(data.roleWinRates) || data.roleWinRates.length === 0) {
+            el.winRateTableBox.textContent = "暂无胜率结果";
+            return;
+        }
+        let html = '<table class="table"><tr><th>角色/阵营</th><th>胜率</th></tr>';
+        for (const item of data.roleWinRates) {
+            html += `<tr><td>${item.role ?? "-"}</td><td>${Math.round((item.winRate || 0) * 100)}%</td></tr>`;
+        }
+        html += "</table>";
+        if (data.reasoningSummary) {
+            html += `<div style="margin-top:8px;color:#4b5563;">${data.reasoningSummary}</div>`;
+        }
+        el.winRateTableBox.innerHTML = html;
+    }
+
+    function renderSpeechAdvice(data) {
+        if (!data || !data.speechStrategy) {
+            el.speechAdviceBox.textContent = "暂无话术建议";
+            return;
+        }
+        const s = data.speechStrategy;
+        const lines = [];
+        lines.push("目标：" + (s.objective || "-"));
+        lines.push("");
+        lines.push("建议话术：");
+        lines.push(s.suggestedSpeech || "-");
+        lines.push("");
+        lines.push("战术点：" + ((s.tacticalPoints || []).join("；") || "-"));
+        lines.push("禁忌点：" + ((s.forbiddenPoints || []).join("；") || "-"));
+        if (data.reasoningSummary) {
+            lines.push("");
+            lines.push("说明：" + data.reasoningSummary);
+        }
+        el.speechAdviceBox.textContent = lines.join("\n");
+    }
+
+    async function runRealtimeRoleAnalysis() {
+        try {
+            const req = buildBaseRequest();
+            try {
+                const roleData = await postJson(apiUrl("/werewolf/role-probabilities"), req);
+                renderRoleAnalysis(roleData);
+            } catch (err) {
+                if (!is404(err)) {
+                    throw err;
+                }
+                // 兼容旧后端：若拆分接口不存在，回退综合接口
+                const allInOne = await postJson(apiUrl("/werewolf/analyze"), req);
+                renderRoleAnalysis(allInOne);
+            }
+        } catch (e) {
+            updateStatus("实时分析失败：" + e.message);
+        }
+    }
+
+    async function runRoundFullAnalysis() {
+        try {
+            const req = buildBaseRequest();
+            try {
+                const [speechAdvice, roleProb, winRates] = await Promise.all([
+                    postJson(apiUrl("/werewolf/speech-advice"), req),
+                    postJson(apiUrl("/werewolf/role-probabilities"), req),
+                    postJson(apiUrl("/werewolf/win-rates"), req)
+                ]);
+                renderSpeechAdvice(speechAdvice);
+                renderRoleAnalysis(roleProb);
+                renderWinRates(winRates);
+            } catch (err) {
+                if (!is404(err)) {
+                    throw err;
+                }
+                // 兼容旧后端：统一使用综合分析接口
+                const allInOne = await postJson(apiUrl("/werewolf/analyze"), req);
+                renderSpeechAdvice({
+                    mode: allInOne.mode,
+                    phase: allInOne.phase,
+                    speechStrategy: allInOne.speechStrategy,
+                    reasoningSummary: allInOne.reasoningSummary
+                });
+                renderRoleAnalysis(allInOne);
+                renderWinRates({
+                    mode: allInOne.mode,
+                    phase: allInOne.phase,
+                    roleWinRates: allInOne.roleWinRates,
+                    reasoningSummary: allInOne.reasoningSummary
+                });
+            }
+            updateStatus("第" + state.currentRound + "轮分析完成。可进入下一轮。");
+        } catch (e) {
+            updateStatus("本轮分析失败：" + e.message);
+        }
+    }
+
+    function startGame() {
+        state.totalPlayers = Number(el.totalPlayers.value);
+        state.currentRound = 1;
+        state.roundSpeeches = new Map();
+        state.allSpeeches = [];
+        state.gameStarted = true;
+        el.speechAdviceBox.textContent = "暂无";
+        el.roleTableBox.textContent = "暂无";
+        el.winRateTableBox.textContent = "暂无";
+        el.speechTimeline.innerHTML = "";
+        renderPlayerInputs();
+        updateProgress();
+        updateStatus("对局已开始，请按顺序输入每位玩家发言。");
+    }
+
+    function nextRound() {
+        state.currentRound += 1;
+        state.roundSpeeches = new Map();
+        renderPlayerInputs();
+        updateProgress();
+        updateStatus("已进入第" + state.currentRound + "轮，请继续录入发言。");
+    }
+
+    el.totalPlayers.addEventListener("change", () => applyDefaultRoleComposition(Number(el.totalPlayers.value)));
+    el.startGameBtn.addEventListener("click", startGame);
+    el.nextRoundBtn.addEventListener("click", nextRound);
+    el.analyzeRoundBtn.addEventListener("click", runRoundFullAnalysis);
+
+    el.debugBaseUrl.textContent = "固定后端地址: " + apiBasePrefix;
+    applyDefaultRoleComposition(Number(el.totalPlayers.value));
+</script>
+</body>
+</html>
