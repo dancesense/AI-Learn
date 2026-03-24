@@ -12,6 +12,9 @@ public record WerewolfAnalysisRequest(
         String winningObjective,
         Map<String, Integer> roleComposition,
         List<PlayerSpeech> speeches,
-        String extraContext
+        String extraContext,
+        List<Integer> deadPlayers,
+        Map<Integer, String> revealedIdentities,
+        List<Integer> knownWerewolfPlayers
 ) {
 }

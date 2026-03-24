@@ -47,7 +47,10 @@ mvn -pl werewolf-assistant spring-boot:run
     {"playerId": 5, "speech": "我偏信1号，但要看警下票型"},
     {"playerId": 6, "speech": "先出2，明天看1的金水"}
   ],
-  "extraContext": "当前无人自曝女巫信息"
+  "extraContext": "当前无人自曝女巫信息",
+  "deadPlayers": [2],
+  "revealedIdentities": {"2": "平民"},
+  "knownWerewolfPlayers": [5]
 }
 ```
 
@@ -63,6 +66,8 @@ mvn -pl werewolf-assistant spring-boot:run
 - 按号位录入每一轮发言并实时记录
 - 每次提交发言后实时更新身份概率
 - 全员发言完自动输出本轮话术建议、角色概率与胜率分析
+- 支持标记死亡玩家与翻牌身份（死亡玩家本轮无需发言）
+- 支持输入“我已知狼人号位”，用于固定队友身份概率
 
 说明：
 

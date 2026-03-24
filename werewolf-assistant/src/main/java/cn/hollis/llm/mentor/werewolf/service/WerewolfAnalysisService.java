@@ -3,6 +3,7 @@ package cn.hollis.llm.mentor.werewolf.service;
 import cn.hollis.llm.mentor.werewolf.model.PlayerRoleAssessment;
 import cn.hollis.llm.mentor.werewolf.model.PlayerSpeech;
 import cn.hollis.llm.mentor.werewolf.model.RoleAnalysisResponse;
+import cn.hollis.llm.mentor.werewolf.model.RoleProbability;
 import cn.hollis.llm.mentor.werewolf.model.RoleWinRate;
 import cn.hollis.llm.mentor.werewolf.model.SpeechAdviceResponse;
 import cn.hollis.llm.mentor.werewolf.model.SpeechStrategy;
@@ -18,6 +19,7 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -127,6 +129,9 @@ public class WerewolfAnalysisService implements InitializingBean {
                 - 角色构成：%s
                 - 常见角色池参考：%s
                 - 额外上下文：%s
+                - 当前死亡玩家：%s
+                - 已翻牌身份：%s
+                - 我已知狼人同伴：%s
 
                 玩家发言记录：
                 %s
@@ -142,6 +147,9 @@ public class WerewolfAnalysisService implements InitializingBean {
                 renderRoleComposition(request.roleComposition()),
                 roles,
                 emptyAsDefault(request.extraContext(), "无"),
+                renderDeadPlayers(request.deadPlayers()),
+                renderKnownIdentities(request.revealedIdentities()),
+                renderKnownWerewolfPlayers(request.knownWerewolfPlayers()),
                 renderSpeeches(request.speeches())
         );
     }
@@ -177,6 +185,9 @@ public class WerewolfAnalysisService implements InitializingBean {
                 - 我的胜利目标：%s
                 - 角色构成：%s
                 - 额外上下文：%s
+                - 当前死亡玩家：%s
+                - 已翻牌身份：%s
+                - 我已知狼人同伴：%s
 
                 玩家发言记录：
                 %s
@@ -191,6 +202,9 @@ public class WerewolfAnalysisService implements InitializingBean {
                 emptyAsDefault(request.winningObjective(), "提高自身生存与本阵营胜率"),
                 renderRoleComposition(request.roleComposition()),
                 emptyAsDefault(request.extraContext(), "无"),
+                renderDeadPlayers(request.deadPlayers()),
+                renderKnownIdentities(request.revealedIdentities()),
+                renderKnownWerewolfPlayers(request.knownWerewolfPlayers()),
                 renderSpeeches(request.speeches())
         );
     }
@@ -229,6 +243,9 @@ public class WerewolfAnalysisService implements InitializingBean {
                 - 角色构成：%s
                 - 常见角色池参考：%s
                 - 额外上下文：%s
+                - 当前死亡玩家：%s
+                - 已翻牌身份：%s
+                - 我已知狼人同伴：%s
 
                 玩家发言记录：
                 %s
@@ -241,6 +258,9 @@ public class WerewolfAnalysisService implements InitializingBean {
                 renderRoleComposition(request.roleComposition()),
                 roles,
                 emptyAsDefault(request.extraContext(), "无"),
+                renderDeadPlayers(request.deadPlayers()),
+                renderKnownIdentities(request.revealedIdentities()),
+                renderKnownWerewolfPlayers(request.knownWerewolfPlayers()),
                 renderSpeeches(request.speeches())
         );
     }
@@ -272,6 +292,9 @@ public class WerewolfAnalysisService implements InitializingBean {
                 - 角色构成：%s
                 - 常见角色池参考：%s
                 - 额外上下文：%s
+                - 当前死亡玩家：%s
+                - 已翻牌身份：%s
+                - 我已知狼人同伴：%s
 
                 玩家发言记录：
                 %s
@@ -286,6 +309,9 @@ public class WerewolfAnalysisService implements InitializingBean {
                 renderRoleComposition(request.roleComposition()),
                 roles,
                 emptyAsDefault(request.extraContext(), "无"),
+                renderDeadPlayers(request.deadPlayers()),
+                renderKnownIdentities(request.revealedIdentities()),
+                renderKnownWerewolfPlayers(request.knownWerewolfPlayers()),
                 renderSpeeches(request.speeches())
         );
     }
@@ -348,6 +374,9 @@ public class WerewolfAnalysisService implements InitializingBean {
     }
 
     private String renderSpeeches(List<PlayerSpeech> speeches) {
+        if (speeches == null || speeches.isEmpty()) {
+            return "（暂无发言）";
+        }
         StringBuilder sb = new StringBuilder();
         for (PlayerSpeech speech : speeches) {
             if (speech == null) {
@@ -390,9 +419,59 @@ public class WerewolfAnalysisService implements InitializingBean {
         return String.join("、", parts);
     }
 
+    private String renderDeadPlayers(List<Integer> deadPlayers) {
+        if (deadPlayers == null || deadPlayers.isEmpty()) {
+            return "无";
+        }
+        List<String> parts = new ArrayList<>();
+        for (Integer playerId : deadPlayers) {
+            if (playerId != null && playerId > 0) {
+                parts.add("玩家" + playerId);
+            }
+        }
+        return parts.isEmpty() ? "无" : String.join("、", parts);
+    }
+
+    private String renderKnownWerewolfPlayers(List<Integer> knownWerewolfPlayers) {
+        if (knownWerewolfPlayers == null || knownWerewolfPlayers.isEmpty()) {
+            return "无";
+        }
+        List<String> parts = new ArrayList<>();
+        for (Integer playerId : knownWerewolfPlayers) {
+            if (playerId != null && playerId > 0) {
+                parts.add("玩家" + playerId);
+            }
+        }
+        return parts.isEmpty() ? "无" : String.join("、", parts);
+    }
+
+    private String renderKnownIdentities(Map<Integer, String> revealedIdentities) {
+        if (revealedIdentities == null || revealedIdentities.isEmpty()) {
+            return "无";
+        }
+        List<String> parts = new ArrayList<>();
+        for (Map.Entry<Integer, String> entry : revealedIdentities.entrySet()) {
+            Integer playerId = entry.getKey();
+            String role = entry.getValue();
+            if (playerId == null || playerId <= 0 || !StringUtils.hasText(role)) {
+                continue;
+            }
+            parts.add("玩家" + playerId + "=" + role.trim());
+        }
+        return parts.isEmpty() ? "无" : String.join("、", parts);
+    }
+
     private void validateRequest(WerewolfAnalysisRequest request) {
-        if (request == null || CollectionUtils.isEmpty(request.speeches())) {
-            throw new IllegalArgumentException("发言内容不能为空");
+        if (request == null) {
+            throw new IllegalArgumentException("请求不能为空");
+        }
+        boolean hasSpeeches = !CollectionUtils.isEmpty(request.speeches());
+        boolean hasContext = StringUtils.hasText(request.extraContext())
+                || !CollectionUtils.isEmpty(request.deadPlayers())
+                || !CollectionUtils.isEmpty(request.revealedIdentities())
+                || !CollectionUtils.isEmpty(request.knownWerewolfPlayers());
+        if (!hasSpeeches && !hasContext) {
+            throw new IllegalArgumentException("请至少提供发言或局势上下文");
         }
     }
 
@@ -423,10 +502,7 @@ public class WerewolfAnalysisService implements InitializingBean {
         if (response == null) {
             return null;
         }
-        if (!hasKnownMyIdentity(request)) {
-            return response;
-        }
-        List<PlayerRoleAssessment> adjusted = enforceMyIdentityForAssessments(request, response.playerAssessments());
+        List<PlayerRoleAssessment> adjusted = enforceKnownIdentitiesForAssessments(request, response.playerAssessments());
         return new WerewolfAnalysisResponse(
                 response.mode(),
                 response.phase(),
@@ -441,10 +517,7 @@ public class WerewolfAnalysisService implements InitializingBean {
         if (response == null) {
             return null;
         }
-        if (!hasKnownMyIdentity(request)) {
-            return response;
-        }
-        List<PlayerRoleAssessment> adjusted = enforceMyIdentityForAssessments(request, response.playerAssessments());
+        List<PlayerRoleAssessment> adjusted = enforceKnownIdentitiesForAssessments(request, response.playerAssessments());
         return new RoleAnalysisResponse(
                 response.mode(),
                 response.phase(),
@@ -453,37 +526,69 @@ public class WerewolfAnalysisService implements InitializingBean {
         );
     }
 
-    private List<PlayerRoleAssessment> enforceMyIdentityForAssessments(WerewolfAnalysisRequest request,
-                                                                        List<PlayerRoleAssessment> assessments) {
+    private List<PlayerRoleAssessment> enforceKnownIdentitiesForAssessments(WerewolfAnalysisRequest request,
+                                                                             List<PlayerRoleAssessment> assessments) {
+        Map<Integer, String> knownIdentities = buildKnownIdentities(request);
+        if (knownIdentities.isEmpty()) {
+            return assessments == null ? new ArrayList<>() : assessments;
+        }
         List<PlayerRoleAssessment> adjusted = new ArrayList<>();
         if (assessments != null) {
             adjusted.addAll(assessments);
         }
-
-        Integer myId = request.myPlayerId();
-        String myRole = request.myRoleHint().trim();
-        PlayerRoleAssessment me = new PlayerRoleAssessment(
-                myId,
-                myRole,
-                1.0,
-                List.of(new cn.hollis.llm.mentor.werewolf.model.RoleProbability(myRole, 1.0)),
-                List.of("该玩家为我本人，身份已知，按先验信息固定为100%")
-        );
-
-        int idx = -1;
-        for (int i = 0; i < adjusted.size(); i++) {
-            PlayerRoleAssessment cur = adjusted.get(i);
-            if (cur != null && myId.equals(cur.playerId())) {
-                idx = i;
-                break;
+        for (Map.Entry<Integer, String> entry : knownIdentities.entrySet()) {
+            Integer playerId = entry.getKey();
+            String role = entry.getValue();
+            PlayerRoleAssessment fixed = new PlayerRoleAssessment(
+                    playerId,
+                    role,
+                    1.0,
+                    List.of(new RoleProbability(role, 1.0)),
+                    List.of("该玩家身份为已知信息，按先验约束固定为100%")
+            );
+            int idx = -1;
+            for (int i = 0; i < adjusted.size(); i++) {
+                PlayerRoleAssessment cur = adjusted.get(i);
+                if (cur != null && playerId.equals(cur.playerId())) {
+                    idx = i;
+                    break;
+                }
+            }
+            if (idx >= 0) {
+                adjusted.set(idx, fixed);
+            } else {
+                adjusted.add(fixed);
             }
         }
-        if (idx >= 0) {
-            adjusted.set(idx, me);
-        } else {
-            adjusted.add(me);
-        }
         return adjusted;
+    }
+
+    private Map<Integer, String> buildKnownIdentities(WerewolfAnalysisRequest request) {
+        Map<Integer, String> known = new LinkedHashMap<>();
+        if (request == null) {
+            return known;
+        }
+        if (request.revealedIdentities() != null) {
+            for (Map.Entry<Integer, String> entry : request.revealedIdentities().entrySet()) {
+                Integer playerId = entry.getKey();
+                String role = entry.getValue();
+                if (playerId == null || playerId <= 0 || !StringUtils.hasText(role)) {
+                    continue;
+                }
+                known.put(playerId, role.trim());
+            }
+        }
+        if (request.knownWerewolfPlayers() != null) {
+            for (Integer playerId : request.knownWerewolfPlayers()) {
+                if (playerId != null && playerId > 0) {
+                    known.put(playerId, "狼人");
+                }
+            }
+        }
+        if (hasKnownMyIdentity(request)) {
+            known.put(request.myPlayerId(), request.myRoleHint().trim());
+        }
+        return known;
     }
 
     @Override

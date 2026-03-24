@@ -97,6 +97,21 @@
             font-weight: 700;
             margin-bottom: 6px;
         }
+        .player-state-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 6px;
+            align-items: center;
+        }
+        .player-state-row label {
+            margin: 0;
+            font-size: 12px;
+            color: #111827;
+        }
+        .player-state-row input[type="checkbox"] {
+            width: auto;
+            margin-right: 4px;
+        }
         .status-line {
             padding: 8px 10px;
             border-radius: 8px;
@@ -217,6 +232,10 @@
                 <label for="winningObjective">我的目标</label>
                 <input id="winningObjective" value="提高自身生存与本阵营胜率">
             </div>
+            <div class="form-row">
+                <label for="knownWerewolfPlayers">我已知狼人号位（逗号分隔）</label>
+                <input id="knownWerewolfPlayers" placeholder="例如：2,5">
+            </div>
 
             <div class="form-row">
                 <label>角色构成（赛前）</label>
@@ -282,7 +301,8 @@
         currentRound: 1,
         totalPlayers: 0,
         roundSpeeches: new Map(),
-        allSpeeches: []
+        allSpeeches: [],
+        playerStates: new Map()
     };
 
     const defaultRolesByPlayers = {
@@ -304,6 +324,7 @@
         myPlayerId: document.getElementById("myPlayerId"),
         myRoleHint: document.getElementById("myRoleHint"),
         winningObjective: document.getElementById("winningObjective"),
+        knownWerewolfPlayers: document.getElementById("knownWerewolfPlayers"),
         extraContext: document.getElementById("extraContext"),
         startGameBtn: document.getElementById("startGameBtn"),
         nextRoundBtn: document.getElementById("nextRoundBtn"),
@@ -360,6 +381,55 @@
         el.gameMode.value = totalPlayers + "人标准局";
     }
 
+    function initPlayerStates(totalPlayers) {
+        state.playerStates = new Map();
+        for (let i = 1; i <= totalPlayers; i++) {
+            state.playerStates.set(i, {alive: true, revealedRole: ""});
+        }
+    }
+
+    function getPlayerState(playerId) {
+        if (!state.playerStates.has(playerId)) {
+            state.playerStates.set(playerId, {alive: true, revealedRole: ""});
+        }
+        return state.playerStates.get(playerId);
+    }
+
+    function parseKnownWerewolfPlayers() {
+        const raw = (el.knownWerewolfPlayers.value || "").trim();
+        if (!raw) {
+            return [];
+        }
+        const values = raw.split(/[,，\s]+/).map(v => Number(v)).filter(v => Number.isInteger(v) && v > 0 && v <= state.totalPlayers);
+        return [...new Set(values)];
+    }
+
+    function getDeadPlayers() {
+        const dead = [];
+        for (let i = 1; i <= state.totalPlayers; i++) {
+            const ps = getPlayerState(i);
+            if (!ps.alive) {
+                dead.push(i);
+            }
+        }
+        return dead;
+    }
+
+    function getRevealedIdentities() {
+        const identities = {};
+        for (let i = 1; i <= state.totalPlayers; i++) {
+            const ps = getPlayerState(i);
+            if (ps.revealedRole) {
+                identities[i] = ps.revealedRole;
+            }
+        }
+        return identities;
+    }
+
+    function getAlivePlayerCount() {
+        return state.totalPlayers - getDeadPlayers().length;
+    }
+
     function buildBaseRequest() {
         return {
             totalPlayers: state.totalPlayers,
@@ -370,7 +440,10 @@
             winningObjective: el.winningObjective.value,
             roleComposition: readRoleComposition(),
             speeches: state.allSpeeches,
-            extraContext: el.extraContext.value
+            extraContext: el.extraContext.value,
+            deadPlayers: getDeadPlayers(),
+            revealedIdentities: getRevealedIdentities(),
+            knownWerewolfPlayers: parseKnownWerewolfPlayers()
         };
     }
 
@@ -401,9 +474,10 @@
     }
 
     function updateProgress() {
+        const aliveCount = getAlivePlayerCount();
         el.roundInfo.textContent = "第" + state.currentRound + "轮";
-        el.progressInfo.textContent = state.roundSpeeches.size + "/" + state.totalPlayers + " 已提交";
-        const finished = state.roundSpeeches.size >= state.totalPlayers;
+        el.progressInfo.textContent = state.roundSpeeches.size + "/" + aliveCount + " 已提交(存活)";
+        const finished = state.roundSpeeches.size >= aliveCount;
         el.analyzeRoundBtn.disabled = !finished;
         el.nextRoundBtn.disabled = !finished;
     }
@@ -418,19 +492,87 @@
     function renderPlayerInputs() {
         el.playerSpeechContainer.innerHTML = "";
         for (let i = 1; i <= state.totalPlayers; i++) {
+            const ps = getPlayerState(i);
             const card = document.createElement("div");
             card.className = "player-card";
             card.innerHTML = `
                 <div class="player-header">玩家${i}</div>
+                <div class="player-state-row">
+                    <label><input type="checkbox" id="dead-${i}" ${ps.alive ? "" : "checked"}>已死亡</label>
+                    <select id="revealed-${i}">
+                        <option value="">未翻牌</option>
+                        <option value="狼人" ${ps.revealedRole === "狼人" ? "selected" : ""}>狼人</option>
+                        <option value="平民" ${ps.revealedRole === "平民" ? "selected" : ""}>平民</option>
+                        <option value="预言家" ${ps.revealedRole === "预言家" ? "selected" : ""}>预言家</option>
+                        <option value="女巫" ${ps.revealedRole === "女巫" ? "selected" : ""}>女巫</option>
+                        <option value="猎人" ${ps.revealedRole === "猎人" ? "selected" : ""}>猎人</option>
+                        <option value="守卫" ${ps.revealedRole === "守卫" ? "selected" : ""}>守卫</option>
+                    </select>
+                </div>
                 <textarea id="speech-${i}" placeholder="输入玩家${i}本轮发言"></textarea>
                 <div style="height:6px;"></div>
                 <button id="submit-${i}">提交玩家${i}发言</button>
             `;
             el.playerSpeechContainer.appendChild(card);
 
+            const deadCheckbox = card.querySelector("#dead-" + i);
+            const revealedSelect = card.querySelector("#revealed-" + i);
+            const ta = card.querySelector("#speech-" + i);
             const btn = card.querySelector("#submit-" + i);
+
+            const syncCardByState = () => {
+                const cur = getPlayerState(i);
+                if (!cur.alive) {
+                    ta.disabled = true;
+                    btn.disabled = true;
+                    btn.textContent = "玩家" + i + "已死亡(无需发言)";
+                    if (state.roundSpeeches.has(i)) {
+                        state.roundSpeeches.delete(i);
+                    }
+                } else if (state.roundSpeeches.has(i)) {
+                    ta.disabled = true;
+                    btn.disabled = true;
+                    btn.textContent = "本轮已提交";
+                } else {
+                    ta.disabled = false;
+                    btn.disabled = false;
+                    btn.textContent = "提交玩家" + i + "发言";
+                }
+            };
+
+            deadCheckbox.addEventListener("change", () => {
+                const cur = getPlayerState(i);
+                cur.alive = !deadCheckbox.checked;
+                if (cur.alive) {
+                    appendTimeline(i, "状态变更：恢复为存活");
+                } else {
+                    const roleTip = cur.revealedRole ? ("，翻牌身份：" + cur.revealedRole) : "";
+                    appendTimeline(i, "状态变更：已死亡" + roleTip);
+                }
+                syncCardByState();
+                updateProgress();
+            });
+
+            revealedSelect.addEventListener("change", () => {
+                const cur = getPlayerState(i);
+                cur.revealedRole = revealedSelect.value;
+                if (cur.revealedRole && cur.alive) {
+                    cur.alive = false;
+                    deadCheckbox.checked = true;
+                    appendTimeline(i, "状态变更：已死亡，翻牌身份：" + cur.revealedRole);
+                } else if (cur.revealedRole) {
+                    appendTimeline(i, "翻牌身份更新为：" + cur.revealedRole);
+                }
+                syncCardByState();
+                updateProgress();
+            });
+
             btn.addEventListener("click", async () => {
-                const ta = card.querySelector("#speech-" + i);
+                const cur = getPlayerState(i);
+                if (!cur.alive) {
+                    alert("该玩家已死亡，本轮无需发言");
+                    return;
+                }
                 const speech = ta.value.trim();
                 if (!speech) {
                     alert("请先填写发言内容");
@@ -449,13 +591,14 @@
                 updateStatus("已记录玩家" + i + "发言，正在做实时身份概率更新...");
                 await runRealtimeRoleAnalysis();
 
-                if (state.roundSpeeches.size >= state.totalPlayers) {
+                if (state.roundSpeeches.size >= getAlivePlayerCount()) {
                     updateStatus("本轮全员发言已完成，正在执行本轮完整分析...");
                     await runRoundFullAnalysis();
                 } else {
                     updateStatus("继续收集其余玩家发言...");
                 }
             });
+            syncCardByState();
         }
     }
 
@@ -582,6 +725,7 @@
         state.currentRound = 1;
         state.roundSpeeches = new Map();
         state.allSpeeches = [];
+        initPlayerStates(state.totalPlayers);
         state.gameStarted = true;
         el.speechAdviceBox.textContent = "暂无";
         el.roleTableBox.textContent = "暂无";
