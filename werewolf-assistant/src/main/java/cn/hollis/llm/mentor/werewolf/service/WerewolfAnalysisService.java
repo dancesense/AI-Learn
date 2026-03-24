@@ -118,6 +118,7 @@ public class WerewolfAnalysisService implements InitializingBean {
                 - suggestedSpeech 必须是我可以直接在场上念出来的一段中文话术。
                 - tacticalPoints 给3-5条可执行策略，forbiddenPoints 给2-4条禁忌发言。
                 - 如果我的身份已知（不是“未知”），在 playerAssessments 中我自己的身份概率必须为100%%。
+                - 已翻牌身份和我已知的狼人同伴，必须按100%%确定身份，不再作为未知概率处理。
 
                 游戏信息：
                 - 总人数：%s
@@ -175,6 +176,7 @@ public class WerewolfAnalysisService implements InitializingBean {
                 - tacticalPoints 给3-5条。
                 - forbiddenPoints 给2-4条。
                 - 你必须代入“我是%s号，身份是%s”的第一视角，给出以我为主体的决策话术。
+                - 你必须利用“死亡/翻牌/已知狼人同伴”这些确定信息做决策，不要把它们当作未确认信息。
 
                 游戏信息：
                 - 总人数：%s
@@ -235,6 +237,7 @@ public class WerewolfAnalysisService implements InitializingBean {
                 - keyEvidence 必须引用发言中的冲突点、站边点或逻辑链。
                 - 你必须代入“我是%s号，身份是%s”的视角进行分析。
                 - 如果我的身份已知（不是“未知”），则我这个玩家的 likelyRole 必须是我的身份，confidence=1.0，且对应概率100%%。
+                - 已翻牌身份和我已知的狼人同伴必须固定为100%%身份概率。
 
                 游戏信息：
                 - 总人数：%s
@@ -282,6 +285,7 @@ public class WerewolfAnalysisService implements InitializingBean {
                 - 至少包含：好人阵营、狼人阵营，以及场上关键神职角色（如预言家/女巫/猎人）。
                 - winRate 必须有区分度，避免全部相同。
                 - 你必须代入“我是%s号，身份是%s”的视角来评估当前胜率与风险。
+                - 评估时必须利用死亡与翻牌等确定信息，作为硬约束而不是猜测。
 
                 游戏信息：
                 - 总人数：%s

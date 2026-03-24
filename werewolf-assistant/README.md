@@ -71,4 +71,4 @@ mvn -pl werewolf-assistant spring-boot:run
 
 说明：
 
-- 若你在请求中提供了已知身份（`myPlayerId` + `myRoleHint` 且不是“未知”），后端会强制把“我自己”的身份概率固定为 100%，AI 按该第一视角进行决策。
+- 若你在请求中提供已知身份信息（`myPlayerId + myRoleHint`、`revealedIdentities`、`knownWerewolfPlayers`），后端会将对应玩家身份概率强制固定为 100%，AI 以该确定信息作为硬约束进行决策。

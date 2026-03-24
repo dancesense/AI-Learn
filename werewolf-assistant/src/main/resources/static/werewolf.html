@@ -544,6 +544,10 @@
                 const cur = getPlayerState(i);
                 cur.alive = !deadCheckbox.checked;
                 if (cur.alive) {
+                    if (cur.revealedRole) {
+                        cur.revealedRole = "";
+                        revealedSelect.value = "";
+                    }
                     appendTimeline(i, "状态变更：恢复为存活");
                 } else {
                     const roleTip = cur.revealedRole ? ("，翻牌身份：" + cur.revealedRole) : "";
