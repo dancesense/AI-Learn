@@ -40,6 +40,106 @@ import java.util.concurrent.atomic.AtomicLong;
 /**
  * WebSearch React Agent
  * 基于联网搜索的智能问答Agent
+ **
+ * ---
+ *
+ * ## `doOnNext` 和 `doOnComplete` 的触发时机
+ *
+ * ```
+ * LLM 流式输出（Flux<ChatResponse>）：
+ *
+ *   chunk1 → doOnNext(processChunk)
+ *   chunk2 → doOnNext(processChunk)
+ *   chunk3 → doOnNext(processChunk)
+ *   ...
+ *   模型输出完毕 → doOnComplete(finishRound)
+ * ```
+ *
+ * **`doOnNext`** = 模型每吐出一个 token（chunk），就触发一次，没错。
+ *
+ * **`doOnComplete`** = 模型**这一轮**全部输出完毕后触发一次。注意是"这一轮"，不是整个会话结束。
+ *
+ * ---
+ *
+ * ## 关于你说的"发现要用工具"的时机
+ *
+ * 这里有个细节要纠正一下。**不是模型输出完才发现，而是模型一边输出就一边能发现**：
+ *
+ * ```java
+ * // processChunk 里，每个 chunk 进来都检查
+ * if (tc != null && !tc.isEmpty()) {
+ *     state.mode = RoundMode.TOOL_CALL;  // 一旦发现 toolCall，立刻切换模式
+ *     mergeToolCall(state, incoming);
+ *     return;  // 直接 return，不往 sink 里推文本
+ * }
+ *
+ * // 没有 toolCall 才推文本
+ * if (text != null) {
+ *     sink.tryEmitNext(createTextResponse(text));
+ * }
+ * ```
+ *
+ * 也就是说：**模型输出 toolCall chunk 的那一刻，`state.mode` 就已经切成 `TOOL_CALL` 了**，文本也停止向前端推送了。只是工具调用的**参数是碎片化的**，所以要等 `doOnComplete` 之后才能拿到完整参数去执行。
+ *
+ * 时序更准确的描述：
+ *
+ * ```
+ * chunk1: text="我来查" → processChunk → 推给前端
+ * chunk2: toolCall{id:"001", args:"{\"quer"} → processChunk → mode=TOOL_CALL，停止推文本
+ * chunk3: toolCall{id:"001", args:"y\":\"北京"} → mergeToolCall 拼接
+ * chunk4: toolCall{id:"001", args:"天气\"}"} → mergeToolCall 拼接
+ * 模型输出完毕 → doOnComplete(finishRound) → 此时才有完整参数 → executeToolCalls
+ * ```
+ *
+ * ---
+ *
+ * ## 关于 `executeToolCalls` 内部是不是多轮循环
+ *
+ * 这里也要纠正一下，`executeToolCalls` 本身**只执行一次当前轮的工具**，多轮逻辑是靠**递归调用 `scheduleRound`** 实现的：
+ *
+ * ```java
+ * // executeToolCalls 执行完后的回调
+ * executeToolCalls(sink, state.toolCalls, messages, hasSentFinalResult, state, agentState, () -> {
+ *     if (!hasSentFinalResult.get()) {
+ *         scheduleRound(...);  // ← 工具执行完，再发起下一轮 LLM 调用
+ *     }
+ * });
+ * ```
+ *
+ * 整个多轮结构其实是这样的：
+ *
+ * ```
+ * scheduleRound()           第1轮 LLM
+ *     ↓ doOnComplete
+ * finishRound()
+ *     ↓ 有工具调用
+ * executeToolCalls()        执行工具（只执行这一轮的）
+ *     ↓ 全部执行完（回调）
+ * scheduleRound()           第2轮 LLM（带上工具结果）
+ *     ↓ doOnComplete
+ * finishRound()
+ *     ↓ 还有工具调用
+ * executeToolCalls()
+ *     ↓
+ * scheduleRound()           第3轮 LLM
+ *     ↓ doOnComplete
+ * finishRound()
+ *     ↓ 没有工具调用了 OR 达到 maxRounds
+ *   直接输出参考 + 推荐 → sink.complete()
+ * ```
+ *
+ * 所以**多轮是靠 `finishRound → executeToolCalls → scheduleRound` 这个链条递归驱动的**，不是在 `executeToolCalls` 内部循环。
+ *
+ * ---
+ *
+ * ## 你的理解总结
+ *
+ * | 你的理解 | 是否正确 |
+ * |---|---|
+ * | `doOnNext` = 模型还在输出就触发 | ✅ 正确 |
+ * | 不需要工具 → 直接输出推荐和引用 | ✅ 正确 |
+ * | 发现要用工具是在模型输出完毕之后 | ⚠️ 半对。发现是在输出中途，但执行是在输出完毕后 |
+ * | `executeToolCalls` 内部是多轮循环直到结束 | ❌ 不是。它只执行当前轮的工具，多轮是靠递归 `scheduleRound` 驱动的 |
  */
 @Slf4j
 public class WebSearchReactAgent extends BaseAgent {
@@ -126,6 +226,12 @@ public class WebSearchReactAgent extends BaseAgent {
         initTimers();
         clearUsedTools();
 
+        //创建一个可以发送多个数据的 Sink，对应 Flux（多值流）。如果是 Sinks.one() 就对应 Mono（单值）。
+        //.unicast()
+        //单播，意思是这个 Sink 只允许一个订阅者消费数据。如果有第二个人来订阅，会直接报错。
+        //对应的还有 multicast()，允许多个订阅者同时消费同一份数据。
+        //在流式对话场景里，一个会话对应一个 SSE 连接，只有一个前端在消费，所以用 unicast 就够了。
+        //背压策略，选择缓冲模式。意思是如果消费者处理不过来，数据先放进缓冲区排队等待，不丢弃。
         Sinks.Many<String> sink = Sinks.many().unicast().onBackpressureBuffer();
 
         // 注册任务到管理器
@@ -248,6 +354,10 @@ public class WebSearchReactAgent extends BaseAgent {
                 .messages(messages)
                 .stream()
                 .chatResponse()
+                //这行代码的意思是：把后续的操作切换到 boundedElastic 线程池上执行。
+                //先理解为什么需要切换线程。模型流式输出的数据是在某个 Reactor 的调度线程上产生的，这个线程是非阻塞线程，不允许在上面做耗时操作。
+                // 但是 doOnNext 里的 processChunk 可能涉及工具调用、数据库操作这类阻塞 IO，如果在非阻塞线程上做这些事，会卡住整个响应式管道。
+                //publishOn 的作用就是在这行代码之后，把所有操作都切换到 boundedElastic 线程池，这个线程池专门用来处理阻塞 IO 任务，线程数量会根据需要动态扩展。
                 .publishOn(Schedulers.boundedElastic())
                 .doOnNext(chunk -> processChunk(chunk, sink, state))
                 .doOnComplete(() -> finishRound(messages, sink, state, roundCounter, hasSentFinalResult, finalAnswerBuffer, useMemory, conversationId, agentState, thinkingBuffer))
@@ -276,6 +386,7 @@ public class WebSearchReactAgent extends BaseAgent {
         List<AssistantMessage.ToolCall> tc = gen.getOutput().getToolCalls();
 
         // 一旦发现 tool_call，立即进入 TOOL_CALL 模式
+        // 马上开始记录TOOL调用的信息 先进行组装
         if (tc != null && !tc.isEmpty()) {
             state.mode = RoundMode.TOOL_CALL;
 
@@ -292,21 +403,42 @@ public class WebSearchReactAgent extends BaseAgent {
         }
     }
 
+
+    /**
+     * 这个方法是在处理流式工具调用的分块合并问题。
+     * 原因是模型流式输出时，一个工具调用的参数不是一次性完整返回的，而是像 token 一样分多个 chunk 流式传输过来：
+     * json// 第一个 chunk
+     * {"id": "call_123", "name": "get_weather", "arguments": "{\"ci"}
+     *
+     * // 第二个 chunk
+     * {"id": "call_123", "name": "", "arguments": "ty\":\"Bei"}
+     *
+     * // 第三个 chunk
+     * {"id": "call_123", "name": "", "arguments": "jing\"}"}
+     * 三个 chunk 合并之后才是完整的工具调用参数 {"city":"Beijing"}。
+     * @param state
+     * @param incoming
+     */
     private void mergeToolCall(RoundState state, AssistantMessage.ToolCall incoming) {
+        // 遍历已有的 toolcalls，找有没有相同 id 的
         for (int i = 0; i < state.toolCalls.size(); i++) {
             AssistantMessage.ToolCall existing = state.toolCalls.get(i);
 
             if (existing.id().equals(incoming.id())) {
-                String mergedArgs = Objects.toString(existing.arguments(), "") + Objects.toString(incoming.arguments(), "");
+                // 找到了相同 id，说明是同一个工具调用的后续分块
+                // 把新来的 arguments 拼接到已有的 arguments 后面
+                String mergedArgs = Objects.toString(existing.arguments(), "")
+                        + Objects.toString(incoming.arguments(), "");
 
+                // 用合并后的版本替换原来的
                 state.toolCalls.set(i,
                         new AssistantMessage.ToolCall(existing.id(), "function", existing.name(), mergedArgs)
                 );
-                return;
+                return;  // 合并完退出
             }
         }
 
-        // 新的 toolcall
+        // 没找到相同 id，说明是全新的工具调用，直接加进去
         state.toolCalls.add(incoming);
     }
 
@@ -349,11 +481,13 @@ public class WebSearchReactAgent extends BaseAgent {
         AssistantMessage assistantMsg = AssistantMessage.builder().toolCalls(state.toolCalls).build();
         messages.add(assistantMsg);
 
+        // 超过最大执行轮次 直接输出
         if (maxRounds > 0 && roundCounter.get() >= maxRounds) {
             forceFinalStream(messages, sink, hasSentFinalResult, state, conversationId, useMemory, agentState, thinkingBuffer);
             return;
         }
 
+        // 如果有工具调用 就先循环吧工具都调用掉
         executeToolCalls(sink, state.toolCalls, messages, hasSentFinalResult, state, agentState, () -> {
             if (!hasSentFinalResult.get()) {
                 scheduleRound(messages, sink, roundCounter,
@@ -438,6 +572,7 @@ public class WebSearchReactAgent extends BaseAgent {
                     }
 
                     hasSentFinalResult.set(true);
+                    // 消息全部发完信号
                     sink.tryEmitComplete();
                 })
                 .doOnError(err -> {
@@ -452,12 +587,25 @@ public class WebSearchReactAgent extends BaseAgent {
         }
     }
 
+    /**
+     * 执行工具调用
+     * @param sink
+     * @param toolCalls
+     * @param messages
+     * @param hasSentFinalResult
+     * @param state
+     * @param agentState
+     * @param onComplete
+     */
     private void executeToolCalls(Sinks.Many<String> sink, List<AssistantMessage.ToolCall> toolCalls, List<Message> messages, AtomicBoolean hasSentFinalResult, RoundState state, AgentState agentState, Runnable onComplete) {
         AtomicInteger completedCount = new AtomicInteger(0);
         int totalToolCalls = toolCalls.size();
 
         for (AssistantMessage.ToolCall tc : toolCalls) {
+            //Schedulers.boundedElastic().schedule() 是 Reactor 的线程池调度，相当于 ExecutorService.submit()
+            // 。多个工具会同时提交到线程池，并行跑，不是一个一个串行等待。
             Schedulers.boundedElastic().schedule(() -> {
+                //如果在工具还没执行完时用户已经取消了（hasSentFinalResult = true），就不再真正执行工具，直接计数然后退出。这是一个提前短路的保护机制。
                 if (hasSentFinalResult.get()) {
                     completeToolCall(completedCount, totalToolCalls, onComplete);
                     return;

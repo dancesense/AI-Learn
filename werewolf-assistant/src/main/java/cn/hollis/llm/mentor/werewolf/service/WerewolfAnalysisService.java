@@ -1,7 +1,14 @@
 package cn.hollis.llm.mentor.werewolf.service;
 
+import cn.hollis.llm.mentor.werewolf.model.EmotionGuide;
+import cn.hollis.llm.mentor.werewolf.model.LastWordRecord;
 import cn.hollis.llm.mentor.werewolf.model.PlayerRoleAssessment;
 import cn.hollis.llm.mentor.werewolf.model.PlayerSpeech;
+import cn.hollis.llm.mentor.werewolf.model.PostGameReviewResponse;
+import cn.hollis.llm.mentor.werewolf.model.PsychologyCoachResponse;
+import cn.hollis.llm.mentor.werewolf.model.SkillEvent;
+import cn.hollis.llm.mentor.werewolf.model.UserObservedSignal;
+import cn.hollis.llm.mentor.werewolf.model.VoteRecord;
 import cn.hollis.llm.mentor.werewolf.model.RoleAnalysisResponse;
 import cn.hollis.llm.mentor.werewolf.model.RoleProbability;
 import cn.hollis.llm.mentor.werewolf.model.RoleWinRate;
@@ -51,7 +58,8 @@ public class WerewolfAnalysisService implements InitializingBean {
         validateRequest(request);
         String prompt = buildSpeechAdvicePrompt(request);
         try {
-            return chatClient.prompt(prompt).call().entity(SpeechAdviceResponse.class);
+            SpeechAdviceResponse raw = chatClient.prompt(prompt).call().entity(SpeechAdviceResponse.class);
+            return normalizeSpeechAdvice(raw, request);
         } catch (Exception ex) {
             return buildFallbackSpeechAdviceResponse(request);
         }
@@ -75,6 +83,28 @@ public class WerewolfAnalysisService implements InitializingBean {
             return chatClient.prompt(prompt).call().entity(WinRateAnalysisResponse.class);
         } catch (Exception ex) {
             return buildFallbackWinRateAnalysisResponse(request);
+        }
+    }
+
+    public PsychologyCoachResponse analyzePsychology(WerewolfAnalysisRequest request) {
+        validateRequest(request);
+        String prompt = buildPsychologyCoachPrompt(request);
+        try {
+            return chatClient.prompt(prompt).call().entity(PsychologyCoachResponse.class);
+        } catch (Exception ex) {
+            return buildFallbackPsychologyResponse(request);
+        }
+    }
+
+    public PostGameReviewResponse analyzePostGame(WerewolfAnalysisRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("请求不能为空");
+        }
+        String prompt = buildPostGameReviewPrompt(request);
+        try {
+            return chatClient.prompt(prompt).call().entity(PostGameReviewResponse.class);
+        } catch (Exception ex) {
+            return buildFallbackPostGameResponse(request);
         }
     }
 
@@ -134,6 +164,9 @@ public class WerewolfAnalysisService implements InitializingBean {
                 - 已翻牌身份：%s
                 - 我已知狼人同伴：%s
 
+                扩展局势数据（投票/技能/遗言/观察）：
+                %s
+
                 玩家发言记录：
                 %s
                 """.formatted(
@@ -151,6 +184,7 @@ public class WerewolfAnalysisService implements InitializingBean {
                 renderDeadPlayers(request.deadPlayers()),
                 renderKnownIdentities(request.revealedIdentities()),
                 renderKnownWerewolfPlayers(request.knownWerewolfPlayers()),
+                renderExtendedSituation(request),
                 renderSpeeches(request.speeches())
         );
     }
@@ -168,7 +202,15 @@ public class WerewolfAnalysisService implements InitializingBean {
                     tacticalPoints: [string],
                     forbiddenPoints: [string]
                   },
-                  reasoningSummary: string
+                  reasoningSummary: string,
+                  emotionGuide: {
+                    intensity0to100: number,
+                    postureSummary: string,
+                    actingTips: [string]
+                  },
+                  defenseSpeechTemplates: [string],
+                  attackSpeechTemplates: [string],
+                  tableWaterTemplates: [string]
                 }
 
                 要求：
@@ -177,6 +219,10 @@ public class WerewolfAnalysisService implements InitializingBean {
                 - forbiddenPoints 给2-4条。
                 - 你必须代入“我是%s号，身份是%s”的第一视角，给出以我为主体的决策话术。
                 - 你必须利用“死亡/翻牌/已知狼人同伴”这些确定信息做决策，不要把它们当作未确认信息。
+                - emotionGuide：结合当前阶段与我的身份，给出建议情绪强度(0-100)、一句话仪态总结、3-5条演技/语气指导。
+                - defenseSpeechTemplates：2-3条防御型话术模板（被指逻辑矛盾、被悍跳查杀等场景）。
+                - attackSpeechTemplates：2-3条进攻/归票型话术模板。
+                - tableWaterTemplates：2-3条表水/平民视角模板。
 
                 游戏信息：
                 - 总人数：%s
@@ -190,6 +236,9 @@ public class WerewolfAnalysisService implements InitializingBean {
                 - 当前死亡玩家：%s
                 - 已翻牌身份：%s
                 - 我已知狼人同伴：%s
+
+                扩展局势数据（投票/技能/遗言/观察）：
+                %s
 
                 玩家发言记录：
                 %s
@@ -207,6 +256,7 @@ public class WerewolfAnalysisService implements InitializingBean {
                 renderDeadPlayers(request.deadPlayers()),
                 renderKnownIdentities(request.revealedIdentities()),
                 renderKnownWerewolfPlayers(request.knownWerewolfPlayers()),
+                renderExtendedSituation(request),
                 renderSpeeches(request.speeches())
         );
     }
@@ -250,6 +300,9 @@ public class WerewolfAnalysisService implements InitializingBean {
                 - 已翻牌身份：%s
                 - 我已知狼人同伴：%s
 
+                扩展局势数据（投票/技能/遗言/观察）：
+                %s
+
                 玩家发言记录：
                 %s
                 """.formatted(
@@ -264,6 +317,7 @@ public class WerewolfAnalysisService implements InitializingBean {
                 renderDeadPlayers(request.deadPlayers()),
                 renderKnownIdentities(request.revealedIdentities()),
                 renderKnownWerewolfPlayers(request.knownWerewolfPlayers()),
+                renderExtendedSituation(request),
                 renderSpeeches(request.speeches())
         );
     }
@@ -300,6 +354,9 @@ public class WerewolfAnalysisService implements InitializingBean {
                 - 已翻牌身份：%s
                 - 我已知狼人同伴：%s
 
+                扩展局势数据（投票/技能/遗言/观察）：
+                %s
+
                 玩家发言记录：
                 %s
                 """.formatted(
@@ -316,6 +373,7 @@ public class WerewolfAnalysisService implements InitializingBean {
                 renderDeadPlayers(request.deadPlayers()),
                 renderKnownIdentities(request.revealedIdentities()),
                 renderKnownWerewolfPlayers(request.knownWerewolfPlayers()),
+                renderExtendedSituation(request),
                 renderSpeeches(request.speeches())
         );
     }
@@ -350,7 +408,168 @@ public class WerewolfAnalysisService implements InitializingBean {
                 resolveMode(request),
                 resolvePhase(request),
                 strategy,
-                "发言建议结构化解析失败，已返回默认稳健话术。"
+                "发言建议结构化解析失败，已返回默认稳健话术。",
+                new EmotionGuide(55, "语速中等、眼神稳定扫视全场，避免多余小动作。", List.of("语气先稳后狠", "被指认时先复述对方论点再反驳")),
+                List.of(),
+                List.of(),
+                List.of()
+        );
+    }
+
+    private SpeechAdviceResponse normalizeSpeechAdvice(SpeechAdviceResponse raw, WerewolfAnalysisRequest request) {
+        if (raw == null) {
+            return buildFallbackSpeechAdviceResponse(request);
+        }
+        EmotionGuide eg = raw.emotionGuide();
+        if (eg == null) {
+            eg = new EmotionGuide(60, "根据阶段调整语气强弱，保持可复述的清晰结构。", List.of());
+        }
+        SpeechStrategy st = raw.speechStrategy();
+        if (st == null) {
+            st = new SpeechStrategy("稳健推进", "我先整理场上已确认信息与矛盾点，再给出可验证的怀疑对象。", List.of(), List.of());
+        }
+        return new SpeechAdviceResponse(
+                StringUtils.hasText(raw.mode()) ? raw.mode() : resolveMode(request),
+                StringUtils.hasText(raw.phase()) ? raw.phase() : resolvePhase(request),
+                st,
+                raw.reasoningSummary(),
+                eg,
+                raw.defenseSpeechTemplates() == null ? List.of() : raw.defenseSpeechTemplates(),
+                raw.attackSpeechTemplates() == null ? List.of() : raw.attackSpeechTemplates(),
+                raw.tableWaterTemplates() == null ? List.of() : raw.tableWaterTemplates()
+        );
+    }
+
+    private String buildPsychologyCoachPrompt(WerewolfAnalysisRequest request) {
+        return """
+                你是狼人杀心理博弈教练。请严格输出JSON，不要Markdown。
+                输出结构必须是：
+                PsychologyCoachResponse{
+                  mode: string,
+                  phase: string,
+                  observationChecklist: [string],
+                  pressureQuestions: [string],
+                  predictedReactions: [string],
+                  counterStrategies: [string],
+                  reasoningSummary: string
+                }
+
+                任务（模块三：人性推测与压力测试）：
+                - observationChecklist：5-8条，教玩家观察哪些微表情/语态信号（停顿、语速、回避问题等），说明要结合现场自行判断。
+                - pressureQuestions：4-6条，针对当前最可疑玩家，给出可现场使用的追问/施压问题。
+                - predictedReactions：3-5条，预测对方在强压下可能的反应类型（辩解/沉默/转移话题/情绪失控等）。
+                - counterStrategies：3-5条，针对上述反应给出应对策略。
+
+                你必须代入“我是%s号，身份是%s”的视角。
+
+                游戏信息：
+                - 总人数：%s
+                - 模式：%s
+                - 阶段：%s
+                - 角色构成：%s
+                - 额外上下文：%s
+                - 死亡：%s
+                - 翻牌：%s
+                - 已知狼同伴：%s
+
+                扩展局势数据：
+                %s
+
+                玩家发言：
+                %s
+                """.formatted(
+                request.myPlayerId() == null ? "未指定" : request.myPlayerId(),
+                emptyAsDefault(request.myRoleHint(), "未知"),
+                String.valueOf(request.totalPlayers() == null ? 0 : request.totalPlayers()),
+                emptyAsDefault(request.gameMode(), "未指定"),
+                emptyAsDefault(request.phase(), "白天发言阶段"),
+                renderRoleComposition(request.roleComposition()),
+                emptyAsDefault(request.extraContext(), "无"),
+                renderDeadPlayers(request.deadPlayers()),
+                renderKnownIdentities(request.revealedIdentities()),
+                renderKnownWerewolfPlayers(request.knownWerewolfPlayers()),
+                renderExtendedSituation(request),
+                renderSpeeches(request.speeches())
+        );
+    }
+
+    private String buildPostGameReviewPrompt(WerewolfAnalysisRequest request) {
+        return """
+                你是狼人杀复盘教练。请严格输出JSON，不要Markdown。
+                输出结构必须是：
+                PostGameReviewResponse{
+                  mode: string,
+                  outcomeSummary: string,
+                  logicVulnerabilities: [string],
+                  emotionVulnerabilities: [string],
+                  decisionMistakes: [string],
+                  improvementSuggestions: [string],
+                  learningResources: [string],
+                  reasoningSummary: string
+                }
+
+                任务（模块四：赛后复盘）：
+                - outcomeSummary：用2-4句话概括本局结果与关键转折（基于提供信息推断即可）。
+                - logicVulnerabilities：指出我（%s号）在发言逻辑上的漏洞与矛盾点，3-6条。
+                - emotionVulnerabilities：指出可能因情绪/攻击性用语暴露信息的点，2-5条。
+                - decisionMistakes：结合投票/技能记录，指出决策失误，3-6条（若无记录则说明信息不足并给通用建议）。
+                - improvementSuggestions：可执行的改进建议，5-8条。
+                - learningResources：推荐3-5条学习方向（视频/文章/练习方式），用简短条目描述即可。
+
+                游戏信息：
+                - 模式：%s
+                - 阶段：%s
+                - 我的身份提示：%s
+                - 对局结果叙述（用户填写）：%s
+
+                扩展局势数据：
+                %s
+
+                玩家发言全记录：
+                %s
+                """.formatted(
+                request.myPlayerId() == null ? "?" : request.myPlayerId(),
+                emptyAsDefault(request.gameMode(), "未指定"),
+                emptyAsDefault(request.phase(), "赛后复盘"),
+                emptyAsDefault(request.myRoleHint(), "未知"),
+                emptyAsDefault(request.gameOutcomeNarrative(), "未提供，请根据上下文推断"),
+                renderExtendedSituation(request),
+                renderSpeeches(request.speeches())
+        );
+    }
+
+    private PsychologyCoachResponse buildFallbackPsychologyResponse(WerewolfAnalysisRequest request) {
+        return new PsychologyCoachResponse(
+                resolveMode(request),
+                resolvePhase(request),
+                List.of(
+                        "观察回答关键问题前是否异常停顿（>2秒）",
+                        "注意语速突然变化或声音颤抖",
+                        "是否回避直接回答而转移话题",
+                        "眼神是否稳定，是否频繁看向特定玩家寻求暗示",
+                        "复述其观点时是否改口或细节不一致"
+                ),
+                List.of(
+                        "你刚才那句话具体指的是哪一轮、哪个行为？能否按时间线复述一遍？",
+                        "你怀疑他的核心依据是什么？如果没有铁逻辑，你为什么愿意为此承担票型风险？",
+                        "你声称平民视角，为什么对夜间信息掌握得这么具体？"
+                ),
+                List.of("强行辩解堆细节", "沉默或敷衍", "反打情绪激怒你", "转移矛盾到另一人"),
+                List.of("对方辩解时要求其给出可验证事实；沉默时用封闭式问题逼二选一；被反打时先降温复述再回击"),
+                "结构化解析失败，已返回基础心理博弈条目。"
+        );
+    }
+
+    private PostGameReviewResponse buildFallbackPostGameResponse(WerewolfAnalysisRequest request) {
+        return new PostGameReviewResponse(
+                resolveMode(request),
+                "信息不足，无法生成完整复盘，请先补充投票、技能与结果叙述。",
+                List.of(),
+                List.of(),
+                List.of(),
+                List.of("补充每轮投票与夜间技能记录后再复盘", "录下自己的发言回听：删去情绪化句子", "固定一套表水结构：结论-理由-可验证点-明天验票标准"),
+                List.of("搜索“狼人杀基础逻辑链教学”", "练习只打一条主线矛盾，避免全场乱打"),
+                "复盘结构化解析失败。"
         );
     }
 
@@ -465,6 +684,94 @@ public class WerewolfAnalysisService implements InitializingBean {
         return parts.isEmpty() ? "无" : String.join("、", parts);
     }
 
+    private String renderExtendedSituation(WerewolfAnalysisRequest request) {
+        if (request == null) {
+            return "无";
+        }
+        StringBuilder sb = new StringBuilder();
+        sb.append("板子模板ID：").append(emptyAsDefault(request.boardTemplateId(), "无")).append("\n");
+        sb.append("投票记录：").append(renderVoteRecords(request.voteRecords())).append("\n");
+        sb.append("技能/夜间事件：").append(renderSkillEvents(request.skillEvents())).append("\n");
+        sb.append("遗言：").append(renderLastWords(request.lastWordRecords())).append("\n");
+        sb.append("用户观察信号：").append(renderObservedSignals(request.observedSignals()));
+        return sb.toString();
+    }
+
+    private String renderVoteRecords(List<VoteRecord> votes) {
+        if (votes == null || votes.isEmpty()) {
+            return "无";
+        }
+        List<String> parts = new ArrayList<>();
+        for (VoteRecord v : votes) {
+            if (v == null || v.voterId() == null) {
+                continue;
+            }
+            String type = StringUtils.hasText(v.voteType()) ? v.voteType() : "投票";
+            String tgt = v.targetId() == null ? "弃票" : ("玩家" + v.targetId());
+            parts.add("第" + (v.round() == null ? "?" : v.round()) + "轮/" + type + "：玩家" + v.voterId() + "→" + tgt);
+        }
+        return parts.isEmpty() ? "无" : String.join("；", parts);
+    }
+
+    private String renderSkillEvents(List<SkillEvent> events) {
+        if (events == null || events.isEmpty()) {
+            return "无";
+        }
+        List<String> parts = new ArrayList<>();
+        for (SkillEvent e : events) {
+            if (e == null) {
+                continue;
+            }
+            StringBuilder one = new StringBuilder();
+            if (e.nightOrDay() != null) {
+                one.append("第").append(e.nightOrDay()).append("段/");
+            }
+            one.append(emptyAsDefault(e.phaseTag(), "事件"));
+            one.append("/").append(emptyAsDefault(e.actionType(), "动作"));
+            if (e.actorPlayerId() != null) {
+                one.append("/行动者玩家").append(e.actorPlayerId());
+            }
+            if (!CollectionUtils.isEmpty(e.targetPlayerIds())) {
+                one.append("/目标").append(e.targetPlayerIds());
+            }
+            if (StringUtils.hasText(e.details())) {
+                one.append("/").append(e.details().trim());
+            }
+            parts.add(one.toString());
+        }
+        return String.join("；", parts);
+    }
+
+    private String renderLastWords(List<LastWordRecord> lastWords) {
+        if (lastWords == null || lastWords.isEmpty()) {
+            return "无";
+        }
+        List<String> parts = new ArrayList<>();
+        for (LastWordRecord lw : lastWords) {
+            if (lw == null || lw.playerId() == null) {
+                continue;
+            }
+            parts.add("玩家" + lw.playerId() + "（第" + (lw.roundOrDay() == null ? "?" : lw.roundOrDay()) + "段）："
+                    + emptyAsDefault(lw.content(), "（空）"));
+        }
+        return parts.isEmpty() ? "无" : String.join(" || ", parts);
+    }
+
+    private String renderObservedSignals(List<UserObservedSignal> signals) {
+        if (signals == null || signals.isEmpty()) {
+            return "无";
+        }
+        List<String> parts = new ArrayList<>();
+        for (UserObservedSignal s : signals) {
+            if (s == null || s.playerId() == null) {
+                continue;
+            }
+            parts.add("玩家" + s.playerId() + "[" + emptyAsDefault(s.category(), "观察") + "] "
+                    + emptyAsDefault(s.description(), ""));
+        }
+        return parts.isEmpty() ? "无" : String.join("；", parts);
+    }
+
     private void validateRequest(WerewolfAnalysisRequest request) {
         if (request == null) {
             throw new IllegalArgumentException("请求不能为空");
@@ -473,7 +780,12 @@ public class WerewolfAnalysisService implements InitializingBean {
         boolean hasContext = StringUtils.hasText(request.extraContext())
                 || !CollectionUtils.isEmpty(request.deadPlayers())
                 || !CollectionUtils.isEmpty(request.revealedIdentities())
-                || !CollectionUtils.isEmpty(request.knownWerewolfPlayers());
+                || !CollectionUtils.isEmpty(request.knownWerewolfPlayers())
+                || StringUtils.hasText(request.boardTemplateId())
+                || !CollectionUtils.isEmpty(request.voteRecords())
+                || !CollectionUtils.isEmpty(request.skillEvents())
+                || !CollectionUtils.isEmpty(request.lastWordRecords())
+                || !CollectionUtils.isEmpty(request.observedSignals());
         if (!hasSpeeches && !hasContext) {
             throw new IllegalArgumentException("请至少提供发言或局势上下文");
         }

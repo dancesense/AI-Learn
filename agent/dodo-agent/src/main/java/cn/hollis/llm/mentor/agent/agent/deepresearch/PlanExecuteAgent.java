@@ -742,6 +742,15 @@ public class PlanExecuteAgent extends BaseAgent {
         return userMessage.toString();
     }
 
+    /**
+     *
+     * @param plan
+     * @param state
+     * @param sink
+     * @param hasSentFinal
+     * @param thinkingBuffer
+     * @return key: 任务id  value:结果
+     */
     private Map<String, TaskResult> executePlan(List<PlanTask> plan, OverAllState state, Sinks.Many<String> sink,
                                                 AtomicBoolean hasSentFinal, StringBuilder thinkingBuffer) {
 
@@ -750,6 +759,7 @@ public class PlanExecuteAgent extends BaseAgent {
         // 按 order 分组：order 相同的 task 可并行
         Map<Integer, List<PlanTask>> grouped = plan.stream().collect(Collectors.groupingBy(PlanTask::order));
 
+        // 任务以及当前任务对应的结果
         Map<String, String> accumulatedResults = new ConcurrentHashMap<>();
 
         // 按 order 顺序执行（不同 order 串行）

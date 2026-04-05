@@ -15,6 +15,12 @@ public record WerewolfAnalysisRequest(
         String extraContext,
         List<Integer> deadPlayers,
         Map<Integer, String> revealedIdentities,
-        List<Integer> knownWerewolfPlayers
+        List<Integer> knownWerewolfPlayers,
+        String boardTemplateId,
+        List<VoteRecord> voteRecords,
+        List<SkillEvent> skillEvents,
+        List<LastWordRecord> lastWordRecords,
+        List<UserObservedSignal> observedSignals,
+        String gameOutcomeNarrative
 ) {
 }
