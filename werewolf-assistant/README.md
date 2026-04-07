@@ -60,6 +60,9 @@ mvn -pl werewolf-assistant spring-boot:run
 - `POST /werewolf/monte-carlo?samples=4000`：**蒙特卡洛边缘概率**（板子 multiset + 硬约束，均匀采样；可与 LLM 对照）（模块一）
 - `POST /werewolf/psychology-coach`：观察清单、施压追问、反应预测与应对（模块三）
 - `POST /werewolf/post-game-review`：赛后复盘报告（模块四）
+- `POST /werewolf/learning/advanced-terms`：高阶术语教学（段位解锁 + 关键词筛选）
+- `POST /werewolf/learning/gestures`：线下手势教学卡片
+- `POST /werewolf/learning/growth-plan`：AI助教个人成长计划（短板 + 每日任务 + 应急模板）
 
 ### 与产品规格的对应关系（当前实现 vs 规划）
 
@@ -126,3 +129,6 @@ mvn -pl werewolf-assistant spring-boot:run
 - **话术 + 情绪演技 + 模板**（模块二）
 - **心理博弈**一键生成（模块三）
 - **赛后复盘**（模块四）
+- **高阶术语教学**（C/B/A/S 段位解锁）
+- **线下面杀手势教学**（图文卡片式内容）
+- **AI助教成长计划**（能力平移到社交/职场）

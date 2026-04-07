@@ -3,6 +3,10 @@ package cn.hollis.llm.mentor.werewolf.controller;
 import cn.hollis.llm.mentor.werewolf.model.MonteCarloInferenceResponse;
 import cn.hollis.llm.mentor.werewolf.model.PostGameReviewResponse;
 import cn.hollis.llm.mentor.werewolf.model.PsychologyCoachResponse;
+import cn.hollis.llm.mentor.werewolf.model.AdvancedTermsRequest;
+import cn.hollis.llm.mentor.werewolf.model.AdvancedTermsResponse;
+import cn.hollis.llm.mentor.werewolf.model.GestureTeachingResponse;
+import cn.hollis.llm.mentor.werewolf.model.GrowthPlanResponse;
 import cn.hollis.llm.mentor.werewolf.model.WerewolfAnalysisRequest;
 import cn.hollis.llm.mentor.werewolf.model.WerewolfAnalysisResponse;
 import cn.hollis.llm.mentor.werewolf.model.RoleAnalysisResponse;
@@ -10,6 +14,7 @@ import cn.hollis.llm.mentor.werewolf.model.SpeechAdviceResponse;
 import cn.hollis.llm.mentor.werewolf.model.WinRateAnalysisResponse;
 import cn.hollis.llm.mentor.werewolf.service.MonteCarloAssignmentService;
 import cn.hollis.llm.mentor.werewolf.service.WerewolfAnalysisService;
+import cn.hollis.llm.mentor.werewolf.service.WerewolfLearningService;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -24,11 +29,14 @@ public class WerewolfAnalysisController {
 
     private final WerewolfAnalysisService werewolfAnalysisService;
     private final MonteCarloAssignmentService monteCarloAssignmentService;
+    private final WerewolfLearningService werewolfLearningService;
 
     public WerewolfAnalysisController(WerewolfAnalysisService werewolfAnalysisService,
-                                      MonteCarloAssignmentService monteCarloAssignmentService) {
+                                      MonteCarloAssignmentService monteCarloAssignmentService,
+                                      WerewolfLearningService werewolfLearningService) {
         this.werewolfAnalysisService = werewolfAnalysisService;
         this.monteCarloAssignmentService = monteCarloAssignmentService;
+        this.werewolfLearningService = werewolfLearningService;
     }
 
     @PostMapping("/analyze")
@@ -65,5 +73,22 @@ public class WerewolfAnalysisController {
     @PostMapping("/post-game-review")
     public PostGameReviewResponse postGameReview(@RequestBody WerewolfAnalysisRequest request) {
         return werewolfAnalysisService.analyzePostGame(request);
+    }
+
+    @PostMapping("/learning/advanced-terms")
+    public AdvancedTermsResponse advancedTerms(@RequestBody(required = false) AdvancedTermsRequest request) {
+        String rankTier = request == null ? null : request.rankTier();
+        String searchKeyword = request == null ? null : request.searchKeyword();
+        return werewolfLearningService.getAdvancedTerms(rankTier, searchKeyword);
+    }
+
+    @PostMapping("/learning/gestures")
+    public GestureTeachingResponse gestures() {
+        return werewolfLearningService.getGestureTeaching();
+    }
+
+    @PostMapping("/learning/growth-plan")
+    public GrowthPlanResponse growthPlan(@RequestBody WerewolfAnalysisRequest request) {
+        return werewolfLearningService.buildGrowthPlan(request);
     }
 }

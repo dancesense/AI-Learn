@@ -5,64 +5,99 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>狼人杀局势分析助手</title>
     <style>
+        :root {
+            --bg: #efead5;
+            --card: #f8f8f8;
+            --line: #d8d3bf;
+            --ink: #3e3a35;
+            --muted: #8a8377;
+            --accent: #6ec0ff;
+            --accent-2: #f5c543;
+            --ok: #4cb36f;
+            --danger: #f05b5b;
+        }
         body {
             margin: 0;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-            background: #f5f7fb;
-            color: #1f2937;
+            font-family: "PingFang SC", "Noto Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            background: var(--bg);
+            color: var(--ink);
         }
         .container {
-            max-width: 1280px;
+            max-width: 430px;
             margin: 0 auto;
-            padding: 20px;
+            padding: 10px 10px 88px;
         }
-        .title {
-            font-size: 24px;
+        .title, .app-title {
+            font-size: 38px;
             font-weight: 700;
-            margin-bottom: 16px;
+            letter-spacing: 1px;
+            margin: 4px 0 10px;
+        }
+        .app-title {
+            font-size: 20px;
+            margin: 0;
+        }
+        .app-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.35);
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            padding: 10px 12px;
+            margin-bottom: 10px;
+            backdrop-filter: blur(2px);
+        }
+        .phase-chip {
+            background: #ffe58f;
+            color: #7e5c00;
+            font-size: 12px;
+            padding: 5px 10px;
+            border-radius: 999px;
+            font-weight: 700;
         }
         .grid {
             display: grid;
-            grid-template-columns: 380px 1fr;
-            gap: 16px;
+            grid-template-columns: 1fr;
+            gap: 10px;
         }
         .card {
-            background: #ffffff;
-            border-radius: 12px;
-            border: 1px solid #e5e7eb;
-            padding: 16px;
-            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.04);
+            background: var(--card);
+            border-radius: 18px;
+            border: 1px solid var(--line);
+            padding: 12px;
+            box-shadow: 0 4px 10px rgba(82, 69, 41, 0.05);
         }
         .card h2 {
-            margin: 0 0 12px 0;
-            font-size: 18px;
+            margin: 0 0 10px;
+            font-size: 26px;
         }
         .form-row {
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
         label {
             display: block;
-            font-size: 13px;
-            color: #4b5563;
+            font-size: 12px;
+            color: var(--muted);
             margin-bottom: 4px;
         }
         input, select, textarea, button {
             width: 100%;
             box-sizing: border-box;
-            border-radius: 8px;
-            border: 1px solid #d1d5db;
+            border-radius: 10px;
+            border: 1px solid var(--line);
             padding: 8px 10px;
-            font-size: 14px;
+            font-size: 13px;
             background: white;
         }
         textarea {
             resize: vertical;
-            min-height: 74px;
+            min-height: 58px;
         }
         button {
             border: none;
             color: #ffffff;
-            background: #2563eb;
+            background: var(--accent);
             cursor: pointer;
             font-weight: 600;
         }
@@ -71,36 +106,38 @@
             cursor: not-allowed;
         }
         .secondary-btn {
-            background: #374151;
+            background: #79a7d8;
         }
         .muted-btn {
-            background: #6b7280;
+            background: #9e9e9e;
         }
         .role-grid {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 8px;
+            gap: 6px;
         }
         .player-list {
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 10px;
+            gap: 8px;
         }
         .player-card {
-            border: 1px solid #e5e7eb;
-            border-radius: 10px;
-            padding: 10px;
-            background: #fafafa;
+            border: 1px solid #b7e2ff;
+            border-radius: 14px;
+            padding: 8px;
+            background: #fcffff;
+            box-shadow: 0 0 0 2px rgba(110, 192, 255, 0.12) inset;
         }
         .player-header {
-            font-size: 14px;
+            font-size: 13px;
             font-weight: 700;
-            margin-bottom: 6px;
+            margin-bottom: 4px;
+            text-align: center;
         }
         .player-state-row {
             display: flex;
-            gap: 8px;
-            margin-bottom: 6px;
+            gap: 6px;
+            margin-bottom: 4px;
             align-items: center;
         }
         .player-state-row label {
@@ -114,30 +151,32 @@
         }
         .status-line {
             padding: 8px 10px;
-            border-radius: 8px;
-            font-size: 13px;
-            margin-bottom: 10px;
-            background: #eff6ff;
-            color: #1d4ed8;
+            border-radius: 10px;
+            font-size: 12px;
+            margin-bottom: 8px;
+            background: #e8f5ff;
+            color: #2b67a6;
+            border: 1px solid #b8dffc;
         }
         .pill {
             display: inline-block;
-            padding: 2px 8px;
+            padding: 3px 9px;
             border-radius: 999px;
-            background: #e5e7eb;
+            background: #f3eebc;
             font-size: 12px;
             margin-right: 6px;
+            color: #6c5a1b;
         }
         .analysis-section h3 {
-            font-size: 15px;
-            margin: 14px 0 8px 0;
+            font-size: 16px;
+            margin: 12px 0 8px 0;
         }
         .analysis-box {
-            background: #f9fafb;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
-            padding: 10px;
-            font-size: 14px;
+            background: #ffffff;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 9px;
+            font-size: 12px;
             white-space: pre-wrap;
             line-height: 1.45;
         }
@@ -147,32 +186,32 @@
             font-size: 13px;
         }
         .table th, .table td {
-            border: 1px solid #e5e7eb;
+            border: 1px solid var(--line);
             padding: 6px 8px;
             text-align: left;
             vertical-align: top;
         }
         .table th {
-            background: #f3f4f6;
+            background: #f4f2e7;
         }
         .timeline {
             max-height: 220px;
             overflow-y: auto;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
             padding: 8px;
             background: #fff;
-            font-size: 13px;
+            font-size: 12px;
         }
         .timeline-item {
             margin-bottom: 6px;
-            border-bottom: 1px dashed #e5e7eb;
+            border-bottom: 1px dashed #e6e0ca;
             padding-bottom: 6px;
         }
         .debug-box {
             margin-top: 10px;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
+            border: 1px solid var(--line);
+            border-radius: 10px;
             background: #fff;
             padding: 8px;
         }
@@ -183,7 +222,7 @@
         }
         .debug-meta {
             font-size: 12px;
-            color: #4b5563;
+            color: var(--muted);
             margin-bottom: 6px;
             word-break: break-all;
         }
@@ -192,21 +231,21 @@
             overflow-y: auto;
             font-size: 12px;
             line-height: 1.4;
-            border: 1px solid #e5e7eb;
+            border: 1px solid var(--line);
             border-radius: 6px;
             padding: 6px;
             background: #f9fafb;
         }
         .debug-log-item {
-            border-bottom: 1px dashed #d1d5db;
+            border-bottom: 1px dashed #d8d3bf;
             padding: 4px 0;
         }
         .sub-card {
-            border: 1px solid #e5e7eb;
-            border-radius: 10px;
+            border: 1px solid var(--line);
+            border-radius: 12px;
             padding: 12px;
             margin-bottom: 12px;
-            background: #fafafa;
+            background: #fff;
         }
         .sub-card h4 {
             margin: 0 0 8px 0;
@@ -229,7 +268,7 @@
         }
         .tag-list {
             font-size: 12px;
-            color: #374151;
+            color: #4f4a44;
             max-height: 72px;
             overflow-y: auto;
         }
@@ -238,13 +277,13 @@
             justify-content: space-between;
             align-items: center;
             padding: 4px 0;
-            border-bottom: 1px dashed #e5e7eb;
+            border-bottom: 1px dashed #e4dfcb;
         }
         .tag-item button {
             width: auto;
             padding: 2px 8px;
             font-size: 11px;
-            background: #dc2626;
+            background: var(--danger);
         }
         .heatmap {
             display: grid;
@@ -252,7 +291,7 @@
             gap: 10px;
         }
         .heat-cell {
-            border: 1px solid #e5e7eb;
+            border: 1px solid var(--line);
             border-radius: 8px;
             padding: 8px;
             background: #fff;
@@ -270,20 +309,126 @@
             margin-bottom: 4px;
         }
         .heat-wolf {
-            background: #dc2626;
+            background: var(--danger);
         }
         .heat-town {
-            background: #16a34a;
+            background: var(--ok);
         }
         .heat-meta {
             font-size: 11px;
-            color: #6b7280;
+            color: var(--muted);
+        }
+        .tab-card-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+        }
+        .atlas-card {
+            background: #fff;
+            border: 1px solid var(--line);
+            border-radius: 14px;
+            padding: 10px;
+        }
+        .atlas-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 999px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            margin: 0 auto 8px;
+            border: 2px solid #aee0ff;
+            background: #f4fbff;
+        }
+        .atlas-name {
+            text-align: center;
+            font-size: 14px;
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+        .atlas-desc {
+            text-align: center;
+            font-size: 11px;
+            color: var(--muted);
+        }
+        .profile-metrics {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 8px;
+        }
+        .metric-box {
+            background: #fff;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+            padding: 10px 8px;
+            text-align: center;
+        }
+        .metric-num {
+            font-size: 20px;
+            font-weight: 700;
+        }
+        .metric-label {
+            font-size: 11px;
+            color: var(--muted);
+        }
+        .bottom-nav {
+            position: fixed;
+            left: 50%;
+            bottom: 10px;
+            transform: translateX(-50%);
+            width: min(410px, calc(100% - 18px));
+            background: #f8f8f8;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            padding: 6px;
+            z-index: 50;
+        }
+        .tab-btn {
+            border: none;
+            background: transparent;
+            color: #888177;
+            font-size: 11px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            padding: 4px;
+        }
+        .tab-btn .icon {
+            font-size: 18px;
+            line-height: 1;
+        }
+        .tab-btn.active {
+            color: #56b6ff;
+            font-weight: 700;
+        }
+        .tab-panel {
+            display: none;
+        }
+        .tab-panel.active {
+            display: block;
+        }
+        @media (max-width: 370px) {
+            .player-list {
+                grid-template-columns: 1fr;
+            }
+            .mini-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
         }
     </style>
 </head>
 <body>
 <div class="container">
-    <div class="title">狼人杀局势分析助手</div>
+    <div class="app-header">
+        <div class="app-title">狼人杀助手</div>
+        <div class="phase-chip" id="topPhaseChip">第1天 · 白天发言</div>
+    </div>
+
+    <div id="panel-board" class="tab-panel active">
     <div class="grid">
         <div class="card">
             <h2>赛前配置</h2>
@@ -433,9 +578,87 @@
                 <div style="height:6px;"></div>
                 <button type="button" id="postReviewBtn" class="secondary-btn" style="width:auto;padding:6px 12px;margin-bottom:8px;">生成复盘报告</button>
                 <div id="postReviewBox" class="analysis-box">暂无</div>
+
+                <h3>6) 高阶术语教学（段位解锁）</h3>
+                <div class="mini-grid-2">
+                    <div>
+                        <label for="termRankTier">当前段位</label>
+                        <select id="termRankTier">
+                            <option value="C">C（入门）</option>
+                            <option value="B">B（进阶）</option>
+                            <option value="A">A（高阶）</option>
+                            <option value="S">S（赛事）</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="termKeyword">关键词筛选</label>
+                        <input id="termKeyword" placeholder="如：警徽流/倒钩/票型">
+                    </div>
+                </div>
+                <button type="button" id="advancedTermsBtn" class="secondary-btn" style="width:auto;padding:6px 12px;margin-bottom:8px;">加载术语</button>
+                <div id="advancedTermsBox" class="analysis-box">暂无</div>
+
+                <h3>7) 线下面杀手势教学</h3>
+                <button type="button" id="gestureBtn" class="secondary-btn" style="width:auto;padding:6px 12px;margin-bottom:8px;">加载手势教学</button>
+                <div id="gestureBox" class="analysis-box">暂无</div>
+
+                <h3>8) AI助教成长计划（个人提升）</h3>
+                <button type="button" id="growthPlanBtn" class="secondary-btn" style="width:auto;padding:6px 12px;margin-bottom:8px;">生成成长计划</button>
+                <div id="growthPlanBox" class="analysis-box">暂无</div>
             </div>
         </div>
     </div>
+    </div>
+
+    <div id="panel-atlas" class="tab-panel">
+        <div class="card">
+            <h2>角色绘本图鉴</h2>
+            <div class="tab-card-grid">
+                <div class="atlas-card"><div class="atlas-icon">🔮</div><div class="atlas-name">预言家</div><div class="atlas-desc">每晚查验一名玩家身份</div></div>
+                <div class="atlas-card"><div class="atlas-icon">🧪</div><div class="atlas-name">女巫</div><div class="atlas-desc">解药与毒药各一次</div></div>
+                <div class="atlas-card"><div class="atlas-icon">🏹</div><div class="atlas-name">猎人</div><div class="atlas-desc">出局可带走一人</div></div>
+                <div class="atlas-card"><div class="atlas-icon">🐺</div><div class="atlas-name">狼人</div><div class="atlas-desc">夜晚刀人，白天伪装</div></div>
+                <div class="atlas-card"><div class="atlas-icon">🛡️</div><div class="atlas-name">守卫</div><div class="atlas-desc">每晚守护一名玩家</div></div>
+                <div class="atlas-card"><div class="atlas-icon">🍞</div><div class="atlas-name">平民</div><div class="atlas-desc">通过逻辑与票型找狼</div></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="panel-strategy" class="tab-panel">
+        <div class="card">
+            <h2>智慧之灯 · 策略</h2>
+            <div class="analysis-box">原型中的“策略指南”已接入到逻辑看板页面的分析模块中。
+
+可点击底部「逻辑看板」查看：
+1. 实时概率与对抗关系
+2. 发言话术与情绪指导
+3. 心理博弈追问
+4. 赛后复盘
+5. 高阶术语、手势教学、成长计划</div>
+            <div style="height:8px;"></div>
+            <button id="jumpToBoardBtn" class="secondary-btn">前往逻辑看板</button>
+        </div>
+    </div>
+
+    <div id="panel-profile" class="tab-panel">
+        <div class="card">
+            <h2>个人中心</h2>
+            <div class="profile-metrics">
+                <div class="metric-box"><div class="metric-num" id="metricRounds">0</div><div class="metric-label">已打轮次</div></div>
+                <div class="metric-box"><div class="metric-num" id="metricSpeeches">0</div><div class="metric-label">发言条数</div></div>
+                <div class="metric-box"><div class="metric-num" id="metricAlive">0</div><div class="metric-label">存活人数</div></div>
+            </div>
+            <div style="height:10px;"></div>
+            <div class="analysis-box">可在「逻辑看板」持续录入发言和事件，本页会同步更新训练统计。</div>
+        </div>
+    </div>
+</div>
+
+<div class="bottom-nav">
+    <button type="button" class="tab-btn active" data-tab="board"><span class="icon">📘</span><span>逻辑看板</span></button>
+    <button type="button" class="tab-btn" data-tab="atlas"><span class="icon">👻</span><span>角色图鉴</span></button>
+    <button type="button" class="tab-btn" data-tab="strategy"><span class="icon">💡</span><span>策略指南</span></button>
+    <button type="button" class="tab-btn" data-tab="profile"><span class="icon">🏠</span><span>个人中心</span></button>
 </div>
 
 <script>
@@ -496,6 +719,19 @@
         postReviewBtn: document.getElementById("postReviewBtn"),
         postReviewBox: document.getElementById("postReviewBox"),
         gameOutcome: document.getElementById("gameOutcome"),
+        termRankTier: document.getElementById("termRankTier"),
+        termKeyword: document.getElementById("termKeyword"),
+        advancedTermsBtn: document.getElementById("advancedTermsBtn"),
+        advancedTermsBox: document.getElementById("advancedTermsBox"),
+        gestureBtn: document.getElementById("gestureBtn"),
+        gestureBox: document.getElementById("gestureBox"),
+        growthPlanBtn: document.getElementById("growthPlanBtn"),
+        growthPlanBox: document.getElementById("growthPlanBox"),
+        topPhaseChip: document.getElementById("topPhaseChip"),
+        metricRounds: document.getElementById("metricRounds"),
+        metricSpeeches: document.getElementById("metricSpeeches"),
+        metricAlive: document.getElementById("metricAlive"),
+        jumpToBoardBtn: document.getElementById("jumpToBoardBtn"),
         voteRound: document.getElementById("voteRound"),
         voteType: document.getElementById("voteType"),
         voteVoter: document.getElementById("voteVoter"),
@@ -758,9 +994,25 @@
         const aliveCount = getAlivePlayerCount();
         el.roundInfo.textContent = "第" + state.currentRound + "轮";
         el.progressInfo.textContent = state.roundSpeeches.size + "/" + aliveCount + " 已提交(存活)";
+        if (el.topPhaseChip) {
+            el.topPhaseChip.textContent = "第" + state.currentRound + "天 · 白天发言";
+        }
         const finished = state.roundSpeeches.size >= aliveCount;
         el.analyzeRoundBtn.disabled = !finished;
         el.nextRoundBtn.disabled = !finished;
+        refreshProfileMetrics();
+    }
+
+    function refreshProfileMetrics() {
+        if (el.metricRounds) {
+            el.metricRounds.textContent = String(Math.max(0, state.currentRound - (state.gameStarted ? 0 : 1)));
+        }
+        if (el.metricSpeeches) {
+            el.metricSpeeches.textContent = String(state.allSpeeches.length);
+        }
+        if (el.metricAlive) {
+            el.metricAlive.textContent = String(getAlivePlayerCount());
+        }
     }
 
     function appendTimeline(playerId, speech) {
@@ -1094,6 +1346,105 @@
         }
     }
 
+    function renderAdvancedTerms(data) {
+        if (!el.advancedTermsBox) return;
+        if (!data || !Array.isArray(data.cards) || data.cards.length === 0) {
+            el.advancedTermsBox.textContent = "暂无匹配术语";
+            return;
+        }
+        const lines = [];
+        lines.push("段位：" + (data.rankTier || "-") + "，已解锁 " + (data.totalUnlocked || 0) + " 条");
+        lines.push("");
+        data.cards.forEach((c, idx) => {
+            lines.push((idx + 1) + ". [" + (c.level || "-") + "] " + (c.term || "-") + "（" + (c.category || "-") + "）");
+            lines.push("定义：" + (c.definition || "-"));
+            lines.push("场景：" + (c.usageScenario || "-"));
+            lines.push("例句：" + (c.example || "-"));
+            lines.push("");
+        });
+        el.advancedTermsBox.textContent = lines.join("\n").trim();
+    }
+
+    async function loadAdvancedTerms() {
+        try {
+            updateStatus("正在加载高阶术语…");
+            const data = await postJson(apiUrl("/werewolf/learning/advanced-terms"), {
+                rankTier: el.termRankTier ? el.termRankTier.value : "C",
+                searchKeyword: el.termKeyword ? el.termKeyword.value : ""
+            });
+            renderAdvancedTerms(data);
+            updateStatus("高阶术语已更新");
+        } catch (e) {
+            updateStatus("术语加载失败：" + e.message);
+        }
+    }
+
+    function renderGestures(data) {
+        if (!el.gestureBox) return;
+        if (!data || !Array.isArray(data.cards) || data.cards.length === 0) {
+            el.gestureBox.textContent = "暂无手势数据";
+            return;
+        }
+        const lines = [];
+        lines.push(data.deckName || "手势教学");
+        lines.push("");
+        data.cards.forEach((g, idx) => {
+            lines.push((idx + 1) + ". " + (g.name || "-") + "（" + (g.category || "-") + "）");
+            lines.push("动作：" + (g.actionGuide || "-"));
+            lines.push("含义：" + (g.meaning || "-"));
+            lines.push("场景：" + (g.useCase || "-"));
+            lines.push("注意：" + (g.caution || "-"));
+            lines.push("");
+        });
+        el.gestureBox.textContent = lines.join("\n").trim();
+    }
+
+    async function loadGestures() {
+        try {
+            updateStatus("正在加载手势教学…");
+            const data = await postJson(apiUrl("/werewolf/learning/gestures"), {});
+            renderGestures(data);
+            updateStatus("手势教学已更新");
+        } catch (e) {
+            updateStatus("手势教学失败：" + e.message);
+        }
+    }
+
+    function renderGrowthPlan(data) {
+        if (!el.growthPlanBox) return;
+        if (!data) {
+            el.growthPlanBox.textContent = "暂无成长计划";
+            return;
+        }
+        const lines = [];
+        lines.push("玩家：" + (data.playerLabel || "-"));
+        lines.push("阶段评估：" + (data.stageAssessment || "-"));
+        lines.push("");
+        lines.push("【核心短板】");
+        (data.weaknessTags || []).forEach(x => lines.push(" · " + x));
+        lines.push("");
+        lines.push("【每日训练任务】");
+        (data.dailyMissions || []).forEach(x => lines.push(" · " + x));
+        lines.push("");
+        lines.push("【应急话术】");
+        (data.emergencySpeechTemplates || []).forEach(x => lines.push(" · " + x));
+        lines.push("");
+        lines.push("【能力平移（社交/职场）】");
+        (data.transferableSkills || []).forEach(x => lines.push(" · " + x));
+        el.growthPlanBox.textContent = lines.join("\n");
+    }
+
+    async function runGrowthPlan() {
+        try {
+            updateStatus("正在生成AI助教成长计划…");
+            const data = await postJson(apiUrl("/werewolf/learning/growth-plan"), buildBaseRequest());
+            renderGrowthPlan(data);
+            updateStatus("成长计划已生成");
+        } catch (e) {
+            updateStatus("成长计划生成失败：" + e.message);
+        }
+    }
+
     async function runRealtimeRoleAnalysis() {
         try {
             const req = buildBaseRequest();
@@ -1176,6 +1527,9 @@
         if (el.mcHeatmapBox) el.mcHeatmapBox.textContent = "暂无数据，分析后自动刷新或点击「刷新热力图」";
         if (el.psychologyBox) el.psychologyBox.textContent = "点击按钮生成观察清单、追问与应对策略";
         if (el.postReviewBox) el.postReviewBox.textContent = "暂无";
+        if (el.advancedTermsBox) el.advancedTermsBox.textContent = "暂无";
+        if (el.gestureBox) el.gestureBox.textContent = "暂无";
+        if (el.growthPlanBox) el.growthPlanBox.textContent = "暂无";
         el.speechTimeline.innerHTML = "";
         renderPlayerInputs();
         updateProgress();
@@ -1194,6 +1548,28 @@
         renderPlayerInputs();
         updateProgress();
         updateStatus("已进入第" + state.currentRound + "轮，请继续录入发言。");
+    }
+
+    function switchTab(tabName) {
+        const tabMap = {
+            board: "panel-board",
+            atlas: "panel-atlas",
+            strategy: "panel-strategy",
+            profile: "panel-profile"
+        };
+        Object.values(tabMap).forEach(id => {
+            const node = document.getElementById(id);
+            if (node) {
+                node.classList.remove("active");
+            }
+        });
+        const target = document.getElementById(tabMap[tabName] || "panel-board");
+        if (target) {
+            target.classList.add("active");
+        }
+        document.querySelectorAll(".tab-btn").forEach(btn => {
+            btn.classList.toggle("active", btn.getAttribute("data-tab") === tabName);
+        });
     }
 
     el.totalPlayers.addEventListener("change", () => applyDefaultRoleComposition(Number(el.totalPlayers.value)));
@@ -1248,10 +1624,20 @@
     if (el.refreshMcBtn) el.refreshMcBtn.addEventListener("click", runMonteCarlo);
     if (el.psychologyBtn) el.psychologyBtn.addEventListener("click", runPsychologyCoach);
     if (el.postReviewBtn) el.postReviewBtn.addEventListener("click", runPostGameReview);
+    if (el.advancedTermsBtn) el.advancedTermsBtn.addEventListener("click", loadAdvancedTerms);
+    if (el.gestureBtn) el.gestureBtn.addEventListener("click", loadGestures);
+    if (el.growthPlanBtn) el.growthPlanBtn.addEventListener("click", runGrowthPlan);
+    if (el.jumpToBoardBtn) {
+        el.jumpToBoardBtn.addEventListener("click", () => switchTab("board"));
+    }
+    document.querySelectorAll(".tab-btn").forEach(btn => {
+        btn.addEventListener("click", () => switchTab(btn.getAttribute("data-tab") || "board"));
+    });
 
     el.debugBaseUrl.textContent = "固定后端地址: " + apiBasePrefix;
     applyDefaultRoleComposition(Number(el.totalPlayers.value));
     renderSituationLists();
+    refreshProfileMetrics();
 </script>
 </body>
 </html>
