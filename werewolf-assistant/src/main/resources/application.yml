@@ -1,26 +1,37 @@
 spring:
   application:
     name: werewolf-assistant
+
+  ai:
+    dashscope:
+      api-key: sk-79729ca14be743e7a33ba6591c788b07
+      chat:
+        api-key: sk-79729ca14be743e7a33ba6591c788b07
+
   datasource:
-    url: jdbc:mysql://localhost:3306/werewolf_assistant?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
-    username: ${MYSQL_USER:root}
-    password: ${MYSQL_PASSWORD:root}
     driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://60.204.238.5:3306/werewolf_assistant?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
+    username: root
+    password: KtkD6t5Q9G8JGbXdGSGcIGQ0u7JiQX@AppleCard
+
   jpa:
+    database-platform: org.hibernate.dialect.MySQLDialect
     hibernate:
       ddl-auto: update
-    open-in-view: false
     show-sql: false
     properties:
       hibernate:
         dialect: org.hibernate.dialect.MySQLDialect
         format_sql: true
-  ai:
-    dashscope:
-      # 临时硬编码（仅用于本地排障），后续建议改回环境变量
-      api-key: sk-79729ca14be743e7a33ba6591c788b07
-      chat:
-        api-key: sk-79729ca14be743e7a33ba6591c788b07
+        boot:
+          allow_jdbc_metadata_access: false
+      jakarta:
+        persistence:
+          jdbc:
+            driver: com.mysql.cj.jdbc.Driver
+            url: jdbc:mysql://60.204.238.5:3306/werewolf_assistant?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
+            user: root
+            password: KtkD6t5Q9G8JGbXdGSGcIGQ0u7JiQX@AppleCard
 
 server:
   port: 8012
