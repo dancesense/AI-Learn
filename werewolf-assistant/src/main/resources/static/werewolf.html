@@ -118,21 +118,25 @@
         }
         .player-list {
             display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-columns: 1fr;
             gap: 8px;
         }
         .player-card {
-            border: 1px solid #b7e2ff;
-            border-radius: 14px;
-            padding: 8px;
-            background: #fcffff;
-            box-shadow: 0 0 0 2px rgba(110, 192, 255, 0.12) inset;
+            border: 1px solid #cfe7fa;
+            border-radius: 12px;
+            padding: 10px;
+            background: #ffffff;
         }
         .player-header {
             font-size: 13px;
             font-weight: 700;
             margin-bottom: 4px;
-            text-align: center;
+            text-align: left;
+        }
+        .speech-label {
+            font-size: 12px;
+            color: #7f796d;
+            margin-bottom: 4px;
         }
         .player-state-row {
             display: flex;
@@ -405,6 +409,30 @@
             color: #56b6ff;
             font-weight: 700;
         }
+        .stt-row {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            margin-top: 6px;
+            margin-bottom: 2px;
+        }
+        .stt-btn {
+            width: auto;
+            padding: 5px 10px;
+            border-radius: 999px;
+            background: #6fa9df;
+            color: #fff;
+            font-size: 12px;
+            border: none;
+            cursor: pointer;
+        }
+        .stt-btn.running {
+            background: #f08a5b;
+        }
+        .stt-tip {
+            font-size: 11px;
+            color: #8a8377;
+        }
         .tab-panel {
             display: none;
         }
@@ -485,6 +513,10 @@
             <div class="form-row">
                 <label for="extraContext">额外上下文</label>
                 <textarea id="extraContext" placeholder="例如：警上有对跳，昨夜平安夜"></textarea>
+                <div class="stt-row">
+                    <button type="button" class="stt-btn" data-target="extraContext" data-status="extraContextSttStatus">🎤 语音转文字</button>
+                    <span class="stt-tip" id="extraContextSttStatus">点击开始识别</span>
+                </div>
             </div>
 
             <button id="startGameBtn">开始对局</button>
@@ -540,12 +572,21 @@
                     <div><label>轮次</label><input id="lwRound" type="number" min="1" value="1"></div>
                 </div>
                 <label>遗言内容</label><textarea id="lwContent" style="min-height:48px;" placeholder="被淘汰玩家遗言"></textarea>
+                <div class="stt-row">
+                    <button type="button" class="stt-btn" data-target="lwContent" data-status="lwContentSttStatus">🎤 语音转文字</button>
+                    <span class="stt-tip" id="lwContentSttStatus">点击开始识别</span>
+                </div>
                 <div style="height:6px;"></div>
                 <button type="button" id="addLwBtn" class="secondary-btn" style="width:auto;padding:6px 12px;">添加遗言</button>
                 <div class="tag-list" id="lwList"></div>
             </div>
 
             <div class="player-list" id="playerSpeechContainer"></div>
+            <div class="stt-row" style="margin-top:10px;">
+                <button type="button" id="toggleContinuousBtn" class="stt-btn">连续录音：关闭</button>
+                <button type="button" id="startContinuousBtn" class="stt-btn">开始连续录入</button>
+            </div>
+            <div class="stt-tip" id="continuousSttStatus">模式关闭：仅单个玩家录音</div>
 
             <div style="height: 12px;"></div>
             <button id="analyzeRoundBtn" class="muted-btn" disabled>全员发言完成后，执行本轮分析</button>
@@ -575,6 +616,10 @@
                 <h3>5) 赛后复盘（模块四）</h3>
                 <label for="gameOutcome">对局结果与关键转折（你来讲述）</label>
                 <textarea id="gameOutcome" placeholder="例如：好人赢；第2天误票真预；我（3号）最后一轮情绪失控…"></textarea>
+                <div class="stt-row">
+                    <button type="button" class="stt-btn" data-target="gameOutcome" data-status="gameOutcomeSttStatus">🎤 语音转文字</button>
+                    <span class="stt-tip" id="gameOutcomeSttStatus">点击开始识别</span>
+                </div>
                 <div style="height:6px;"></div>
                 <button type="button" id="postReviewBtn" class="secondary-btn" style="width:auto;padding:6px 12px;margin-bottom:8px;">生成复盘报告</button>
                 <div id="postReviewBox" class="analysis-box">暂无</div>
@@ -732,6 +777,9 @@
         metricSpeeches: document.getElementById("metricSpeeches"),
         metricAlive: document.getElementById("metricAlive"),
         jumpToBoardBtn: document.getElementById("jumpToBoardBtn"),
+        toggleContinuousBtn: document.getElementById("toggleContinuousBtn"),
+        startContinuousBtn: document.getElementById("startContinuousBtn"),
+        continuousSttStatus: document.getElementById("continuousSttStatus"),
         voteRound: document.getElementById("voteRound"),
         voteType: document.getElementById("voteType"),
         voteVoter: document.getElementById("voteVoter"),
@@ -768,6 +816,209 @@
         item.className = "debug-log-item";
         item.textContent = text;
         el.debugRequestLog.prepend(item);
+    }
+
+    const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let activeRecognition = null;
+    let activeSttButton = null;
+    let activeSttStatusEl = null;
+    let continuousModeEnabled = false;
+    let continuousActive = false;
+    let continuousQueue = [];
+    let continuousIndex = -1;
+
+    function stopActiveRecognition() {
+        if (activeRecognition) {
+            try {
+                activeRecognition.stop();
+            } catch (ignore) {}
+        }
+        if (activeSttButton) {
+            activeSttButton.classList.remove("running");
+            activeSttButton.textContent = "🎤 语音转文字";
+        }
+        if (activeSttStatusEl) {
+            activeSttStatusEl.textContent = "识别结束";
+        }
+        activeRecognition = null;
+        activeSttButton = null;
+        activeSttStatusEl = null;
+    }
+
+    function refreshContinuousUi() {
+        if (el.toggleContinuousBtn) {
+            el.toggleContinuousBtn.textContent = continuousModeEnabled ? "连续录音：开启" : "连续录音：关闭";
+            el.toggleContinuousBtn.classList.toggle("running", continuousModeEnabled);
+        }
+        if (el.startContinuousBtn) {
+            el.startContinuousBtn.disabled = !continuousModeEnabled;
+            el.startContinuousBtn.textContent = continuousActive ? "连续录入进行中" : "开始连续录入";
+            el.startContinuousBtn.classList.toggle("running", continuousActive);
+        }
+        if (el.continuousSttStatus) {
+            if (!continuousModeEnabled) {
+                el.continuousSttStatus.textContent = "模式关闭：仅单个玩家录音";
+            } else if (!continuousActive) {
+                el.continuousSttStatus.textContent = "模式已开启：点击“开始连续录入”";
+            }
+        }
+    }
+
+    function endContinuousSession(msg) {
+        continuousActive = false;
+        continuousQueue = [];
+        continuousIndex = -1;
+        if (el.continuousSttStatus && msg) {
+            el.continuousSttStatus.textContent = msg;
+        }
+        refreshContinuousUi();
+    }
+
+    function buildContinuousQueue() {
+        const queue = [];
+        for (let i = 1; i <= state.totalPlayers; i++) {
+            const ps = getPlayerState(i);
+            if (!ps.alive) continue;
+            if (state.roundSpeeches.has(i)) continue;
+            queue.push(i);
+        }
+        return queue;
+    }
+
+    function appendSpeechText(targetEl, text) {
+        if (!targetEl || !text) return;
+        const exists = (targetEl.value || "").trim();
+        if (!exists) {
+            targetEl.value = text;
+            return;
+        }
+        const sep = targetEl.tagName === "TEXTAREA" ? "\n" : " ";
+        targetEl.value = exists + sep + text;
+    }
+
+    function getBtnPlayerId(btn) {
+        if (!btn) return null;
+        const raw = btn.getAttribute("data-player");
+        const v = Number(raw);
+        return Number.isInteger(v) && v > 0 ? v : null;
+    }
+
+    function advanceContinuousSession() {
+        if (!continuousActive) return;
+        continuousIndex += 1;
+        while (continuousIndex < continuousQueue.length) {
+            const playerId = continuousQueue[continuousIndex];
+            const btn = document.getElementById("speech-stt-" + playerId);
+            if (btn && !btn.disabled) {
+                if (el.continuousSttStatus) {
+                    el.continuousSttStatus.textContent = "连续录入中：请录入玩家" + playerId + "，说完点“停止并下一位”";
+                }
+                handleSttPress(btn, true);
+                return;
+            }
+            continuousIndex += 1;
+        }
+        endContinuousSession("连续录入完成");
+    }
+
+    function startContinuousSession() {
+        if (!SpeechRecognitionCtor) {
+            alert("当前浏览器不支持语音识别，建议使用 Chrome/Edge。");
+            return;
+        }
+        if (!state.gameStarted) {
+            alert("请先点击“开始对局”");
+            return;
+        }
+        stopActiveRecognition();
+        continuousQueue = buildContinuousQueue();
+        if (!continuousQueue.length) {
+            endContinuousSession("没有可录入玩家（可能本轮都已提交或已死亡）");
+            return;
+        }
+        continuousActive = true;
+        continuousIndex = 0;
+        refreshContinuousUi();
+        const firstPid = continuousQueue[0];
+        const firstBtn = document.getElementById("speech-stt-" + firstPid);
+        if (!firstBtn) {
+            endContinuousSession("连续录入失败：未找到玩家录音按钮");
+            return;
+        }
+        if (el.continuousSttStatus) {
+            el.continuousSttStatus.textContent = "连续录入中：请录入玩家" + firstPid + "，说完点“停止并下一位”";
+        }
+        handleSttPress(firstBtn, true);
+    }
+
+    function handleSttPress(btn, fromContinuousStep) {
+        const targetId = btn.getAttribute("data-target");
+        const statusId = btn.getAttribute("data-status");
+        const targetEl = targetId ? document.getElementById(targetId) : null;
+        const statusEl = statusId ? document.getElementById(statusId) : null;
+        if (!targetEl) {
+            alert("语音目标输入框不存在");
+            return;
+        }
+        if (!SpeechRecognitionCtor) {
+            alert("当前浏览器不支持语音识别，建议使用 Chrome/Edge。");
+            return;
+        }
+
+        if (activeSttButton === btn) {
+            stopActiveRecognition();
+            if (continuousActive) {
+                advanceContinuousSession();
+            }
+            return;
+        }
+        stopActiveRecognition();
+
+        const recog = new SpeechRecognitionCtor();
+        recog.lang = "zh-CN";
+        recog.continuous = !continuousActive;
+        recog.interimResults = false;
+        recog.maxAlternatives = 1;
+
+        let roundText = "";
+        recog.onstart = () => {
+            activeRecognition = recog;
+            activeSttButton = btn;
+            activeSttStatusEl = statusEl || null;
+            btn.classList.add("running");
+            btn.textContent = continuousActive ? "⏹ 停止并下一位" : "⏹ 停止识别";
+            if (statusEl) statusEl.textContent = "识别中...";
+        };
+        recog.onresult = (evt) => {
+            for (let i = evt.resultIndex; i < evt.results.length; i++) {
+                const phrase = (evt.results[i][0] && evt.results[i][0].transcript) ? evt.results[i][0].transcript.trim() : "";
+                if (phrase) {
+                    roundText += (roundText ? " " : "") + phrase;
+                }
+            }
+            if (roundText) {
+                appendSpeechText(targetEl, roundText);
+                roundText = "";
+                if (statusEl) statusEl.textContent = "已追加识别文本";
+            }
+        };
+        recog.onerror = (evt) => {
+            if (statusEl) statusEl.textContent = "识别失败: " + (evt.error || "未知错误");
+        };
+        recog.onend = () => {
+            if (activeSttButton === btn) {
+                stopActiveRecognition();
+                if (continuousActive && fromContinuousStep) {
+                    advanceContinuousSession();
+                }
+            }
+        };
+        recog.start();
+    }
+
+    function bindSttButton(btn) {
+        if (!btn) return;
+        btn.addEventListener("click", () => handleSttPress(btn, false));
     }
 
     function readRoleComposition() {
@@ -1042,7 +1293,12 @@
                         <option value="守卫" ${ps.revealedRole === "守卫" ? "selected" : ""}>守卫</option>
                     </select>
                 </div>
+                <div class="speech-label">玩家${i}发言内容</div>
                 <textarea id="speech-${i}" placeholder="输入玩家${i}本轮发言"></textarea>
+                <div class="stt-row">
+                    <button type="button" class="stt-btn" id="speech-stt-${i}" data-player="${i}" data-target="speech-${i}" data-status="speechSttStatus-${i}">🎤 录入玩家${i}</button>
+                    <span class="stt-tip" id="speechSttStatus-${i}">点击开始识别</span>
+                </div>
                 <div style="height:6px;"></div>
                 <button id="submit-${i}">提交玩家${i}发言</button>
             `;
@@ -1051,6 +1307,7 @@
             const deadCheckbox = card.querySelector("#dead-" + i);
             const revealedSelect = card.querySelector("#revealed-" + i);
             const ta = card.querySelector("#speech-" + i);
+            const speechSttBtn = card.querySelector("#speech-stt-" + i);
             const btn = card.querySelector("#submit-" + i);
 
             const syncCardByState = () => {
@@ -1058,6 +1315,7 @@
                 if (!cur.alive) {
                     ta.disabled = true;
                     btn.disabled = true;
+                    if (speechSttBtn) speechSttBtn.disabled = true;
                     btn.textContent = "玩家" + i + "已死亡(无需发言)";
                     if (state.roundSpeeches.has(i)) {
                         state.roundSpeeches.delete(i);
@@ -1065,10 +1323,12 @@
                 } else if (state.roundSpeeches.has(i)) {
                     ta.disabled = true;
                     btn.disabled = true;
+                    if (speechSttBtn) speechSttBtn.disabled = true;
                     btn.textContent = "本轮已提交";
                 } else {
                     ta.disabled = false;
                     btn.disabled = false;
+                    if (speechSttBtn) speechSttBtn.disabled = false;
                     btn.textContent = "提交玩家" + i + "发言";
                 }
             };
@@ -1135,6 +1395,9 @@
                     updateStatus("继续收集其余玩家发言...");
                 }
             });
+            if (speechSttBtn) {
+                bindSttButton(speechSttBtn);
+            }
             syncCardByState();
         }
     }
@@ -1510,6 +1773,8 @@
     }
 
     async function startGame() {
+        stopActiveRecognition();
+        endContinuousSession("模式已重置：请在本局重新开启连续录音");
         state.totalPlayers = Number(el.totalPlayers.value);
         state.currentRound = 1;
         state.roundSpeeches = new Map();
@@ -1520,6 +1785,7 @@
         state.dbGameId = null;
         initPlayerStates(state.totalPlayers);
         state.gameStarted = true;
+        switchTab("board");
         renderSituationLists();
         el.speechAdviceBox.textContent = "暂无";
         el.roleTableBox.textContent = "暂无";
@@ -1543,6 +1809,8 @@
     }
 
     function nextRound() {
+        stopActiveRecognition();
+        endContinuousSession("已进入新一轮：如需连录请重新开始");
         state.currentRound += 1;
         state.roundSpeeches = new Map();
         renderPlayerInputs();
@@ -1630,13 +1898,40 @@
     if (el.jumpToBoardBtn) {
         el.jumpToBoardBtn.addEventListener("click", () => switchTab("board"));
     }
+    if (el.toggleContinuousBtn) {
+        el.toggleContinuousBtn.addEventListener("click", () => {
+            continuousModeEnabled = !continuousModeEnabled;
+            if (!continuousModeEnabled) {
+                stopActiveRecognition();
+                endContinuousSession("模式关闭：仅单个玩家录音");
+            } else {
+                refreshContinuousUi();
+            }
+        });
+    }
+    if (el.startContinuousBtn) {
+        el.startContinuousBtn.addEventListener("click", () => {
+            if (!continuousModeEnabled) {
+                alert("请先开启连续录音模式");
+                return;
+            }
+            if (continuousActive) {
+                stopActiveRecognition();
+                endContinuousSession("已手动结束连续录入");
+                return;
+            }
+            startContinuousSession();
+        });
+    }
     document.querySelectorAll(".tab-btn").forEach(btn => {
         btn.addEventListener("click", () => switchTab(btn.getAttribute("data-tab") || "board"));
     });
+    document.querySelectorAll(".stt-btn").forEach(btn => bindSttButton(btn));
 
     el.debugBaseUrl.textContent = "固定后端地址: " + apiBasePrefix;
     applyDefaultRoleComposition(Number(el.totalPlayers.value));
     renderSituationLists();
+    refreshContinuousUi();
     refreshProfileMetrics();
 </script>
 </body>
