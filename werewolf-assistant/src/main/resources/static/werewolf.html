@@ -1,1938 +1,1287 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>狼人杀局势分析助手</title>
-    <style>
-        :root {
-            --bg: #efead5;
-            --card: #f8f8f8;
-            --line: #d8d3bf;
-            --ink: #3e3a35;
-            --muted: #8a8377;
-            --accent: #6ec0ff;
-            --accent-2: #f5c543;
-            --ok: #4cb36f;
-            --danger: #f05b5b;
-        }
-        body {
-            margin: 0;
-            font-family: "PingFang SC", "Noto Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-            background: var(--bg);
-            color: var(--ink);
-        }
-        .container {
-            max-width: 430px;
-            margin: 0 auto;
-            padding: 10px 10px 88px;
-        }
-        .title, .app-title {
-            font-size: 38px;
-            font-weight: 700;
-            letter-spacing: 1px;
-            margin: 4px 0 10px;
-        }
-        .app-title {
-            font-size: 20px;
-            margin: 0;
-        }
-        .app-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            background: rgba(255, 255, 255, 0.35);
-            border: 1px solid var(--line);
-            border-radius: 16px;
-            padding: 10px 12px;
-            margin-bottom: 10px;
-            backdrop-filter: blur(2px);
-        }
-        .phase-chip {
-            background: #ffe58f;
-            color: #7e5c00;
-            font-size: 12px;
-            padding: 5px 10px;
-            border-radius: 999px;
-            font-weight: 700;
-        }
-        .grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 10px;
-        }
-        .card {
-            background: var(--card);
-            border-radius: 18px;
-            border: 1px solid var(--line);
-            padding: 12px;
-            box-shadow: 0 4px 10px rgba(82, 69, 41, 0.05);
-        }
-        .card h2 {
-            margin: 0 0 10px;
-            font-size: 26px;
-        }
-        .form-row {
-            margin-bottom: 8px;
-        }
-        label {
-            display: block;
-            font-size: 12px;
-            color: var(--muted);
-            margin-bottom: 4px;
-        }
-        input, select, textarea, button {
-            width: 100%;
-            box-sizing: border-box;
-            border-radius: 10px;
-            border: 1px solid var(--line);
-            padding: 8px 10px;
-            font-size: 13px;
-            background: white;
-        }
-        textarea {
-            resize: vertical;
-            min-height: 58px;
-        }
-        button {
-            border: none;
-            color: #ffffff;
-            background: var(--accent);
-            cursor: pointer;
-            font-weight: 600;
-        }
-        button:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-        .secondary-btn {
-            background: #79a7d8;
-        }
-        .muted-btn {
-            background: #9e9e9e;
-        }
-        .role-grid {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 6px;
-        }
-        .player-list {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 8px;
-        }
-        .player-card {
-            border: 1px solid #cfe7fa;
-            border-radius: 12px;
-            padding: 10px;
-            background: #ffffff;
-        }
-        .player-header {
-            font-size: 13px;
-            font-weight: 700;
-            margin-bottom: 4px;
-            text-align: left;
-        }
-        .speech-label {
-            font-size: 12px;
-            color: #7f796d;
-            margin-bottom: 4px;
-        }
-        .player-state-row {
-            display: flex;
-            gap: 6px;
-            margin-bottom: 4px;
-            align-items: center;
-        }
-        .player-state-row label {
-            margin: 0;
-            font-size: 12px;
-            color: #111827;
-        }
-        .player-state-row input[type="checkbox"] {
-            width: auto;
-            margin-right: 4px;
-        }
-        .status-line {
-            padding: 8px 10px;
-            border-radius: 10px;
-            font-size: 12px;
-            margin-bottom: 8px;
-            background: #e8f5ff;
-            color: #2b67a6;
-            border: 1px solid #b8dffc;
-        }
-        .pill {
-            display: inline-block;
-            padding: 3px 9px;
-            border-radius: 999px;
-            background: #f3eebc;
-            font-size: 12px;
-            margin-right: 6px;
-            color: #6c5a1b;
-        }
-        .analysis-section h3 {
-            font-size: 16px;
-            margin: 12px 0 8px 0;
-        }
-        .analysis-box {
-            background: #ffffff;
-            border: 1px solid var(--line);
-            border-radius: 12px;
-            padding: 9px;
-            font-size: 12px;
-            white-space: pre-wrap;
-            line-height: 1.45;
-        }
-        .table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 13px;
-        }
-        .table th, .table td {
-            border: 1px solid var(--line);
-            padding: 6px 8px;
-            text-align: left;
-            vertical-align: top;
-        }
-        .table th {
-            background: #f4f2e7;
-        }
-        .timeline {
-            max-height: 220px;
-            overflow-y: auto;
-            border: 1px solid var(--line);
-            border-radius: 10px;
-            padding: 8px;
-            background: #fff;
-            font-size: 12px;
-        }
-        .timeline-item {
-            margin-bottom: 6px;
-            border-bottom: 1px dashed #e6e0ca;
-            padding-bottom: 6px;
-        }
-        .debug-box {
-            margin-top: 10px;
-            border: 1px solid var(--line);
-            border-radius: 10px;
-            background: #fff;
-            padding: 8px;
-        }
-        .debug-title {
-            font-size: 13px;
-            font-weight: 700;
-            margin-bottom: 6px;
-        }
-        .debug-meta {
-            font-size: 12px;
-            color: var(--muted);
-            margin-bottom: 6px;
-            word-break: break-all;
-        }
-        .debug-log {
-            max-height: 120px;
-            overflow-y: auto;
-            font-size: 12px;
-            line-height: 1.4;
-            border: 1px solid var(--line);
-            border-radius: 6px;
-            padding: 6px;
-            background: #f9fafb;
-        }
-        .debug-log-item {
-            border-bottom: 1px dashed #d8d3bf;
-            padding: 4px 0;
-        }
-        .sub-card {
-            border: 1px solid var(--line);
-            border-radius: 12px;
-            padding: 12px;
-            margin-bottom: 12px;
-            background: #fff;
-        }
-        .sub-card h4 {
-            margin: 0 0 8px 0;
-            font-size: 14px;
-        }
-        .mini-grid {
-            display: grid;
-            grid-template-columns: repeat(4, minmax(0, 1fr));
-            gap: 8px;
-            margin-bottom: 8px;
-        }
-        .mini-grid-2 {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 8px;
-            margin-bottom: 8px;
-        }
-        .mini-grid label, .mini-grid-2 label {
-            font-size: 12px;
-        }
-        .tag-list {
-            font-size: 12px;
-            color: #4f4a44;
-            max-height: 72px;
-            overflow-y: auto;
-        }
-        .tag-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 4px 0;
-            border-bottom: 1px dashed #e4dfcb;
-        }
-        .tag-item button {
-            width: auto;
-            padding: 2px 8px;
-            font-size: 11px;
-            background: var(--danger);
-        }
-        .heatmap {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-            gap: 10px;
-        }
-        .heat-cell {
-            border: 1px solid var(--line);
-            border-radius: 8px;
-            padding: 8px;
-            background: #fff;
-        }
-        .heat-cell .num {
-            font-weight: 700;
-            font-size: 14px;
-            margin-bottom: 6px;
-        }
-        .heat-bar {
-            height: 8px;
-            border-radius: 4px;
-            overflow: hidden;
-            display: flex;
-            margin-bottom: 4px;
-        }
-        .heat-wolf {
-            background: var(--danger);
-        }
-        .heat-town {
-            background: var(--ok);
-        }
-        .heat-meta {
-            font-size: 11px;
-            color: var(--muted);
-        }
-        .tab-card-grid {
-            display: grid;
-            grid-template-columns: repeat(2, minmax(0, 1fr));
-            gap: 8px;
-        }
-        .atlas-card {
-            background: #fff;
-            border: 1px solid var(--line);
-            border-radius: 14px;
-            padding: 10px;
-        }
-        .atlas-icon {
-            width: 50px;
-            height: 50px;
-            border-radius: 999px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 22px;
-            margin: 0 auto 8px;
-            border: 2px solid #aee0ff;
-            background: #f4fbff;
-        }
-        .atlas-name {
-            text-align: center;
-            font-size: 14px;
-            font-weight: 700;
-            margin-bottom: 2px;
-        }
-        .atlas-desc {
-            text-align: center;
-            font-size: 11px;
-            color: var(--muted);
-        }
-        .profile-metrics {
-            display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: 8px;
-        }
-        .metric-box {
-            background: #fff;
-            border: 1px solid var(--line);
-            border-radius: 12px;
-            padding: 10px 8px;
-            text-align: center;
-        }
-        .metric-num {
-            font-size: 20px;
-            font-weight: 700;
-        }
-        .metric-label {
-            font-size: 11px;
-            color: var(--muted);
-        }
-        .bottom-nav {
-            position: fixed;
-            left: 50%;
-            bottom: 10px;
-            transform: translateX(-50%);
-            width: min(410px, calc(100% - 18px));
-            background: #f8f8f8;
-            border: 1px solid var(--line);
-            border-radius: 16px;
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            padding: 6px;
-            z-index: 50;
-        }
-        .tab-btn {
-            border: none;
-            background: transparent;
-            color: #888177;
-            font-size: 11px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 3px;
-            padding: 4px;
-        }
-        .tab-btn .icon {
-            font-size: 18px;
-            line-height: 1;
-        }
-        .tab-btn.active {
-            color: #56b6ff;
-            font-weight: 700;
-        }
-        .stt-row {
-            display: flex;
-            gap: 6px;
-            align-items: center;
-            margin-top: 6px;
-            margin-bottom: 2px;
-        }
-        .stt-btn {
-            width: auto;
-            padding: 5px 10px;
-            border-radius: 999px;
-            background: #6fa9df;
-            color: #fff;
-            font-size: 12px;
-            border: none;
-            cursor: pointer;
-        }
-        .stt-btn.running {
-            background: #f08a5b;
-        }
-        .stt-tip {
-            font-size: 11px;
-            color: #8a8377;
-        }
-        .tab-panel {
-            display: none;
-        }
-        .tab-panel.active {
-            display: block;
-        }
-        @media (max-width: 370px) {
-            .player-list {
-                grid-template-columns: 1fr;
-            }
-            .mini-grid {
-                grid-template-columns: repeat(2, minmax(0, 1fr));
-            }
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>狼人杀助手</title>
+  <style>
+    :root {
+      --bg: #070314;
+      --bg-soft: #110a24;
+      --card: #17102d;
+      --card-2: #1d1435;
+      --line: #342757;
+      --text: #f4efff;
+      --muted: #b8aadb;
+      --purple: #9a5cff;
+      --purple-2: #7b44d8;
+      --blue: #58a9ff;
+      --orange: #ff9d2f;
+      --yellow: #f7d23c;
+      --green: #43d17f;
+      --danger: #ff6b6b;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: radial-gradient(circle at 20% 0%, #140c2d, var(--bg) 48%);
+      color: var(--text);
+      font-family: "PingFang SC", "Noto Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      padding: 16px;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 430px;
+      min-height: 860px;
+      background: linear-gradient(180deg, #1a1230, #0d0820 45%, #0a061a);
+      border: 1px solid #24193e;
+      border-radius: 34px;
+      box-shadow: 0 20px 48px rgba(0, 0, 0, 0.45);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .page { padding: 16px 14px 98px; }
+    .hidden { display: none; }
+
+    .top {
+      background: linear-gradient(160deg, #2a1a49, #1b1331);
+      border: 1px solid #3a2a64;
+      border-radius: 22px;
+      padding: 14px;
+    }
+
+    .date { color: var(--muted); font-size: 13px; margin-bottom: 2px; }
+
+    .greeting {
+      margin: 0;
+      font-size: 34px;
+      line-height: 1.15;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+
+    .top-row {
+      margin-top: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .chip {
+      border: 1px solid #48346e;
+      border-radius: 999px;
+      padding: 6px 10px;
+      color: #d8ccf8;
+      background: rgba(255, 255, 255, 0.04);
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .chip.blue {
+      border-color: #2a5ca6;
+      color: #b8d9ff;
+      background: rgba(88, 169, 255, 0.12);
+    }
+
+    .panel {
+      margin-top: 12px;
+      background: #130d26;
+      border: 1px solid #2f2351;
+      border-radius: 16px;
+      padding: 10px;
+    }
+
+    .panel-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      color: #d3c8f4;
+      margin-bottom: 8px;
+      font-weight: 600;
+    }
+
+    .chart {
+      width: 100%;
+      height: 110px;
+      border-radius: 10px;
+      border: 1px solid #2a1f48;
+      background: linear-gradient(180deg, rgba(154, 92, 255, 0.18), rgba(154, 92, 255, 0.02));
+      overflow: hidden;
+    }
+
+    .chart svg { width: 100%; height: 100%; display: block; }
+
+    .stats {
+      margin-top: 10px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+    }
+
+    .stat { text-align: center; border-right: 1px solid #2a1f48; }
+    .stat:last-child { border-right: none; }
+    .stat-label { font-size: 12px; color: #a99ccc; margin-bottom: 3px; }
+    .stat-value { font-size: 30px; font-weight: 700; }
+    .stat-value.green { color: var(--green); }
+    .stat-value.blue { color: #7ab7ff; }
+
+    .actions {
+      margin-top: 14px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .action {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #130d25;
+      padding: 12px 10px;
+      min-height: 94px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      text-align: center;
+      color: #f0ebff;
+      font-size: 16px;
+    }
+
+    .action.primary {
+      border-left: 4px solid var(--purple);
+      cursor: pointer;
+      transition: transform .12s ease;
+    }
+
+    .action.primary:active { transform: scale(0.98); }
+    .action.secondary { border-left: 4px solid var(--orange); color: #d6d0e9; }
+    .action .icon { font-size: 36px; line-height: 1; margin-bottom: 6px; }
+    .action .desc { font-size: 19px; font-weight: 800; }
+    .action .sub { margin-top: 4px; font-size: 11px; color: #b3a6d5; font-weight: 500; }
+
+    .section-title { margin: 14px 2px 8px; font-size: 22px; font-weight: 700; }
+
+    .event-list { display: flex; flex-direction: column; gap: 10px; }
+
+    .event-card {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #130d25;
+      padding: 9px;
+      display: grid;
+      grid-template-columns: 86px 1fr auto;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .thumb {
+      width: 86px;
+      height: 60px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #4f8a52, #2b4f82);
+      border: 1px solid #3d3063;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+    }
+
+    .event-title { font-size: 14px; font-weight: 700; margin-bottom: 3px; line-height: 1.35; }
+    .event-sub { font-size: 11px; color: #aa9ecd; line-height: 1.35; }
+    .tag {
+      display: inline-block;
+      margin-top: 6px;
+      font-size: 10px;
+      color: #d6c8fa;
+      border: 1px solid #5d448f;
+      border-radius: 999px;
+      padding: 3px 8px;
+    }
+
+    .join-btn {
+      border: none;
+      border-radius: 999px;
+      background: var(--purple);
+      color: #fff;
+      font-weight: 700;
+      padding: 8px 14px;
+      font-size: 12px;
+    }
+
+    .header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      padding: 2px 4px;
+    }
+
+    .title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 32px;
+      font-weight: 700;
+    }
+
+    .back-btn {
+      border: none;
+      background: transparent;
+      color: #e9deff;
+      font-size: 32px;
+      line-height: 1;
+      cursor: pointer;
+    }
+
+    .rec-chip {
+      border: 1px solid #7b2b46;
+      border-radius: 999px;
+      background: rgba(255, 63, 63, 0.14);
+      color: #ffafaf;
+      font-size: 18px;
+      font-weight: 700;
+      padding: 7px 12px;
+      cursor: pointer;
+    }
+
+    .rec-chip.on {
+      background: rgba(255, 63, 63, 0.28);
+      color: #ffd3d3;
+    }
+
+    .monitor-card {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--card-2);
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+
+    .wave {
+      height: 48px;
+      display: flex;
+      align-items: flex-end;
+      justify-content: center;
+      gap: 4px;
+      margin: 8px 0;
+    }
+
+    .wave span {
+      width: 5px;
+      border-radius: 4px;
+      background: #b87cff;
+      animation: wave 1s ease-in-out infinite;
+      opacity: 0.75;
+    }
+
+    .wave span:nth-child(1) { height: 22px; animation-delay: 0s; }
+    .wave span:nth-child(2) { height: 34px; animation-delay: .08s; }
+    .wave span:nth-child(3) { height: 18px; animation-delay: .16s; }
+    .wave span:nth-child(4) { height: 28px; animation-delay: .24s; }
+    .wave span:nth-child(5) { height: 16px; animation-delay: .32s; }
+    .wave span:nth-child(6) { height: 36px; animation-delay: .4s; }
+    .wave span:nth-child(7) { height: 20px; animation-delay: .48s; }
+
+    @keyframes wave {
+      0%,100% { transform: scaleY(.65); opacity: .45; }
+      50% { transform: scaleY(1.15); opacity: 1; }
+    }
+
+    .listen-text { text-align: center; color: #d9cdf8; font-size: 24px; margin-bottom: 8px; }
+
+    .quote {
+      border: 1px solid #3b2c60;
+      background: #24183c;
+      border-radius: 12px;
+      padding: 9px;
+      color: #efe9ff;
+      font-size: 14px;
+      min-height: 60px;
+    }
+
+    .review-status { margin-top: 8px; color: #bdb0de; font-size: 12px; }
+
+    .timeline { margin-top: 8px; border-left: 1px solid #3b2c60; padding-left: 12px; }
+
+    .node { position: relative; margin-bottom: 14px; }
+
+    .dot {
+      position: absolute;
+      left: -17px;
+      top: 5px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #9c6cff;
+    }
+
+    .dot.yellow { background: #ffd84f; }
+    .dot.gray { background: #57607c; }
+
+    .node-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: #c5b8e8;
+      font-size: 12px;
+      margin-bottom: 6px;
+    }
+
+    .node-card {
+      border: 1px solid #37295a;
+      border-radius: 14px;
+      background: #17102d;
+      padding: 10px;
+    }
+
+    .node-title { font-size: 26px; font-weight: 700; margin-bottom: 5px; }
+    .node-desc { font-size: 14px; color: #ccbee9; line-height: 1.5; white-space: pre-wrap; }
+
+    .node-tags { margin-top: 7px; display: flex; gap: 6px; }
+
+    .pill {
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 10px;
+      color: #fff;
+    }
+
+    .pill.purple { background: #8d4bf6; }
+    .pill.yellow { background: #9f7b1f; }
+
+    .paywall {
+      border: 1px dashed #4a356f;
+      border-radius: 14px;
+      padding: 10px;
+      background: rgba(133, 88, 255, 0.05);
+    }
+
+    .paywall-title {
+      font-size: 13px;
+      color: #d8cbff;
+      margin-bottom: 8px;
+    }
+
+    .pay-btn {
+      width: 100%;
+      border: none;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #934cff, #7443e4);
+      color: #fff;
+      font-size: 13px;
+      font-weight: 700;
+      padding: 10px;
+      cursor: pointer;
+    }
+
+    .pay-btn.unlocked {
+      background: linear-gradient(135deg, #2fae6b, #238956);
+    }
+
+    .tabs { display: flex; gap: 8px; margin-bottom: 10px; overflow-x: auto; }
+
+    .tab-chip {
+      border: 1px solid #3a2d5f;
+      border-radius: 999px;
+      padding: 7px 14px;
+      font-size: 12px;
+      color: #c5b8e8;
+      white-space: nowrap;
+      background: #1b1431;
+      cursor: pointer;
+    }
+
+    .tab-chip.active {
+      background: linear-gradient(135deg, #9a5cff, #7d43db);
+      border-color: transparent;
+      color: #fff;
+    }
+
+    .role-strip {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .role-item {
+      text-align: center;
+      font-size: 11px;
+      color: #c6b9ea;
+    }
+
+    .avatar {
+      width: 100%;
+      aspect-ratio: 1;
+      border-radius: 12px;
+      border: 1px solid #4a3972;
+      background: linear-gradient(145deg, #3f3261, #1b1430);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      margin-bottom: 4px;
+    }
+
+    .article {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: #17102d;
+      padding: 12px;
+      margin-bottom: 10px;
+    }
+
+    .article-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    .article-title {
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
+    .article-date { font-size: 11px; color: #958ab7; }
+
+    .article-text {
+      font-size: 14px;
+      line-height: 1.55;
+      color: #d7cbf6;
+      margin-bottom: 8px;
+    }
+
+    .article-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: #b6a9d9;
+    }
+
+    .read-more {
+      border: 1px solid #5b3ea0;
+      border-radius: 8px;
+      background: transparent;
+      color: #d7c6ff;
+      padding: 6px 10px;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .term-box {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #191132;
+      padding: 10px;
+    }
+
+    .term-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .term-cell {
+      border: 1px solid #3f2f65;
+      border-radius: 10px;
+      background: #231942;
+      padding: 8px;
+    }
+
+    .term-word {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 3px;
+      color: #ffde57;
+    }
+
+    .term-desc {
+      font-size: 12px;
+      color: #c9bdf0;
+    }
+
+    .profile-top {
+      text-align: center;
+      margin-bottom: 12px;
+    }
+
+    .profile-avatar {
+      width: 94px;
+      height: 94px;
+      border-radius: 50%;
+      margin: 0 auto 10px;
+      border: 3px solid #7a47dc;
+      background: linear-gradient(145deg, #2f2250, #17102d);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 45px;
+    }
+
+    .profile-name { font-size: 34px; font-weight: 800; margin-bottom: 2px; }
+    .profile-id { font-size: 13px; color: #ad9fd2; }
+
+    .vip-card {
+      border: 1px solid #b28eff;
+      border-radius: 18px;
+      background: linear-gradient(135deg, #2b2048, #1d1536);
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+
+    .vip-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .vip-title { font-size: 25px; font-weight: 700; color: #ffe35a; }
+
+    .vip-badge {
+      background: #4f3f21;
+      color: #ffd76f;
+      border: 1px solid #7d6834;
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 11px;
+    }
+
+    .vip-sub { font-size: 12px; color: #c9bdf0; margin-bottom: 8px; }
+
+    .vip-pay {
+      border: none;
+      border-radius: 999px;
+      background: #f6d44a;
+      color: #3f3014;
+      font-size: 14px;
+      font-weight: 700;
+      padding: 9px 16px;
+    }
+
+    .menu-list { display: flex; flex-direction: column; gap: 10px; }
+
+    .menu-item {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #17102d;
+      padding: 11px 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+    }
+
+    .menu-right { color: #9f93c4; font-size: 13px; }
+
+    .switch {
+      width: 38px;
+      height: 22px;
+      border-radius: 999px;
+      border: 1px solid #5f44a5;
+      background: #7d44dd;
+      position: relative;
+    }
+
+    .switch::after {
+      content: "";
+      position: absolute;
+      top: 2px;
+      right: 2px;
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: #fff;
+    }
+
+    .bottom-nav {
+      position: absolute;
+      left: 12px;
+      right: 12px;
+      bottom: 10px;
+      background: rgba(30, 22, 48, 0.96);
+      border: 1px solid #332654;
+      border-radius: 20px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      padding: 8px 6px;
+      backdrop-filter: blur(6px);
+    }
+
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      color: #a295c7;
+      font-size: 11px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .nav-item .icon { font-size: 16px; }
+    .nav-item.active { color: #bc8dff; }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,.55);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 100;
+    }
+
+    .modal.show { display: flex; }
+
+    .modal-card {
+      width: 100%;
+      max-width: 420px;
+      max-height: 78vh;
+      overflow: auto;
+      border-radius: 16px;
+      border: 1px solid #4a3971;
+      background: #191132;
+      padding: 12px;
+    }
+
+    .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+    .modal-text { font-size: 14px; line-height: 1.6; color: #d9cdf7; white-space: pre-wrap; }
+    .modal-close {
+      margin-top: 10px;
+      width: 100%;
+      border: none;
+      border-radius: 10px;
+      background: linear-gradient(135deg,#8f4dff,#6e46df);
+      color: #fff;
+      font-size: 14px;
+      font-weight: 700;
+      padding: 10px;
+    }
+
+    @media (max-width: 375px) {
+      .greeting { font-size: 29px; }
+      .title-wrap { font-size: 28px; }
+      .event-card { grid-template-columns: 72px 1fr; }
+      .thumb { width: 72px; height: 56px; }
+      .join-btn { grid-column: span 2; width: 100%; }
+      .role-strip { grid-template-columns: repeat(2, 1fr); }
+      .term-grid { grid-template-columns: 1fr; }
+    }
+  </style>
 </head>
 <body>
-<div class="container">
-    <div class="app-header">
-        <div class="app-title">狼人杀助手</div>
-        <div class="phase-chip" id="topPhaseChip">第1天 · 白天发言</div>
-    </div>
+<div class="app">
+  <div id="homePage" class="page">
+    <section class="top">
+      <div class="date" id="todayText">2026年4月9日 · 星期四</div>
+      <h1 class="greeting">晚上好，逻辑大师</h1>
+      <div class="top-row">
+        <span class="chip">📍 上海 静安</span>
+        <span class="chip">🔥 附近 12 个组局进行中</span>
+        <span class="chip blue">🤖 AI 复盘 2.0 已上线</span>
+      </div>
 
-    <div id="panel-board" class="tab-panel active">
-    <div class="grid">
-        <div class="card">
-            <h2>赛前配置</h2>
-            <div class="form-row">
-                <label for="totalPlayers">总人数</label>
-                <select id="totalPlayers">
-                    <option value="6">6人场</option>
-                    <option value="9">9人场</option>
-                    <option value="12">12人场</option>
-                </select>
-            </div>
-            <div class="form-row">
-                <label for="boardTemplate">板子模板（模块一：配置标签）</label>
-                <select id="boardTemplate">
-                    <option value="custom">自定义（仅作标签）</option>
-                    <option value="std6">6人标准（2狼2民预女）</option>
-                    <option value="std9">9人标准（3狼3民预女猎）</option>
-                    <option value="std12">12人标准（4狼4民预女猎守）</option>
-                </select>
-            </div>
-            <div class="form-row">
-                <label for="gameMode">模式名称</label>
-                <input id="gameMode" value="6人标准局">
-            </div>
-            <div class="form-row">
-                <label for="myPlayerId">我是几号位</label>
-                <input id="myPlayerId" type="number" min="1" value="1">
-            </div>
-            <div class="form-row">
-                <label for="myRoleHint">我的身份提示</label>
-                <input id="myRoleHint" value="未知">
-            </div>
-            <div class="form-row">
-                <label for="winningObjective">我的目标</label>
-                <input id="winningObjective" value="提高自身生存与本阵营胜率">
-            </div>
-            <div class="form-row">
-                <label for="knownWerewolfPlayers">我已知狼人号位（逗号分隔）</label>
-                <input id="knownWerewolfPlayers" placeholder="例如：2,5">
-            </div>
-
-            <div class="form-row">
-                <label>角色构成（赛前）</label>
-                <div class="role-grid">
-                    <div><label>狼人</label><input id="role-werewolf" type="number" min="0" value="2"></div>
-                    <div><label>平民</label><input id="role-villager" type="number" min="0" value="2"></div>
-                    <div><label>预言家</label><input id="role-seer" type="number" min="0" value="1"></div>
-                    <div><label>女巫</label><input id="role-witch" type="number" min="0" value="1"></div>
-                    <div><label>猎人</label><input id="role-hunter" type="number" min="0" value="0"></div>
-                    <div><label>守卫</label><input id="role-guard" type="number" min="0" value="0"></div>
-                </div>
-            </div>
-
-            <div class="form-row">
-                <label for="extraContext">额外上下文</label>
-                <textarea id="extraContext" placeholder="例如：警上有对跳，昨夜平安夜"></textarea>
-                <div class="stt-row">
-                    <button type="button" class="stt-btn" data-target="extraContext" data-status="extraContextSttStatus">🎤 语音转文字</button>
-                    <span class="stt-tip" id="extraContextSttStatus">点击开始识别</span>
-                </div>
-            </div>
-
-            <button id="startGameBtn">开始对局</button>
-            <div style="height: 8px;"></div>
-            <button id="nextRoundBtn" class="secondary-btn" disabled>进入下一轮</button>
+      <div class="panel">
+        <div class="panel-head">
+          <span>⟳ 本周战绩看板</span>
+          <span style="color:#9b8cbc;font-size:12px;">查看详情 ></span>
         </div>
-
-        <div class="card">
-            <h2>发言与分析</h2>
-            <div class="status-line" id="statusLine">请先完成左侧赛前配置，然后点击“开始对局”。</div>
-            <div style="margin-bottom: 10px;">
-                <span class="pill" id="roundInfo">第1轮</span>
-                <span class="pill" id="progressInfo">0/0 已提交</span>
-            </div>
-            <div class="debug-box">
-                <div class="debug-title">请求调试面板</div>
-                <div class="debug-meta" id="debugBaseUrl"></div>
-                <div class="debug-log" id="debugRequestLog">暂无请求记录</div>
-            </div>
-
-            <div class="sub-card">
-                <h4>局势录入（投票 / 技能 / 遗言）</h4>
-                <div class="mini-grid">
-                    <div><label>轮次</label><input id="voteRound" type="number" min="1" value="1"></div>
-                    <div><label>类型</label>
-                        <select id="voteType"><option>放逐投票</option><option>警长投票</option><option>其他</option></select>
-                    </div>
-                    <div><label>投票人号</label><input id="voteVoter" type="number" min="1" value="1"></div>
-                    <div><label>投给(空=弃票)</label><input id="voteTarget" type="number" min="1" placeholder="可选"></div>
-                </div>
-                <button type="button" id="addVoteBtn" class="secondary-btn" style="width:auto;padding:6px 12px;">添加投票记录</button>
-                <div class="tag-list" id="voteList"></div>
-
-                <div style="height:10px;"></div>
-                <div class="mini-grid-2">
-                    <div><label>第几夜/天</label><input id="skillNight" type="number" min="1" value="1"></div>
-                    <div><label>阶段标签</label><input id="skillPhase" placeholder="如 狼刀 / 女巫救"></div>
-                </div>
-                <div class="mini-grid-2">
-                    <div><label>动作</label><input id="skillAction" placeholder="刀/救/毒/验/守"></div>
-                    <div><label>行动者号</label><input id="skillActor" type="number" min="1" placeholder="可选"></div>
-                </div>
-                <div class="mini-grid-2">
-                    <div><label>目标号(逗号分隔)</label><input id="skillTargets" placeholder="如 3,4"></div>
-                    <div><label>备注</label><input id="skillDetails" placeholder="可选"></div>
-                </div>
-                <button type="button" id="addSkillBtn" class="secondary-btn" style="width:auto;padding:6px 12px;">添加技能事件</button>
-                <div class="tag-list" id="skillList"></div>
-
-                <div style="height:10px;"></div>
-                <div class="mini-grid-2">
-                    <div><label>遗言玩家号</label><input id="lwPlayer" type="number" min="1" value="1"></div>
-                    <div><label>轮次</label><input id="lwRound" type="number" min="1" value="1"></div>
-                </div>
-                <label>遗言内容</label><textarea id="lwContent" style="min-height:48px;" placeholder="被淘汰玩家遗言"></textarea>
-                <div class="stt-row">
-                    <button type="button" class="stt-btn" data-target="lwContent" data-status="lwContentSttStatus">🎤 语音转文字</button>
-                    <span class="stt-tip" id="lwContentSttStatus">点击开始识别</span>
-                </div>
-                <div style="height:6px;"></div>
-                <button type="button" id="addLwBtn" class="secondary-btn" style="width:auto;padding:6px 12px;">添加遗言</button>
-                <div class="tag-list" id="lwList"></div>
-            </div>
-
-            <div class="player-list" id="playerSpeechContainer"></div>
-            <div class="stt-row" style="margin-top:10px;">
-                <button type="button" id="toggleContinuousBtn" class="stt-btn">连续录音：关闭</button>
-                <button type="button" id="startContinuousBtn" class="stt-btn">开始连续录入</button>
-            </div>
-            <div class="stt-tip" id="continuousSttStatus">模式关闭：仅单个玩家录音</div>
-
-            <div style="height: 12px;"></div>
-            <button id="analyzeRoundBtn" class="muted-btn" disabled>全员发言完成后，执行本轮分析</button>
-
-            <div style="height: 12px;"></div>
-            <h3 style="margin: 8px 0;">实时发言记录</h3>
-            <div class="timeline" id="speechTimeline"></div>
-
-            <div class="analysis-section">
-                <h3>1) 我该怎么说（高胜率话术）</h3>
-                <div class="analysis-box" id="speechAdviceBox">暂无</div>
-
-                <h3>2) 玩家角色概率分析（LLM）</h3>
-                <div id="roleTableBox" class="analysis-box">暂无</div>
-
-                <h3>2b) 蒙特卡洛边缘概率（板子 multiset + 硬约束）</h3>
-                <button type="button" id="refreshMcBtn" class="muted-btn" style="width:auto;padding:6px 12px;margin-bottom:8px;">刷新热力图</button>
-                <div id="mcHeatmapBox" class="analysis-box">暂无数据，分析后自动刷新或点击「刷新热力图」</div>
-
-                <h3>3) 当前角色/阵营胜率（百分比）</h3>
-                <div id="winRateTableBox" class="analysis-box">暂无</div>
-
-                <h3>4) 心理博弈与施压（模块三）</h3>
-                <button type="button" id="psychologyBtn" class="secondary-btn" style="width:auto;padding:6px 12px;margin-bottom:8px;">生成心理博弈指导</button>
-                <div id="psychologyBox" class="analysis-box">点击按钮生成观察清单、追问与应对策略</div>
-
-                <h3>5) 赛后复盘（模块四）</h3>
-                <label for="gameOutcome">对局结果与关键转折（你来讲述）</label>
-                <textarea id="gameOutcome" placeholder="例如：好人赢；第2天误票真预；我（3号）最后一轮情绪失控…"></textarea>
-                <div class="stt-row">
-                    <button type="button" class="stt-btn" data-target="gameOutcome" data-status="gameOutcomeSttStatus">🎤 语音转文字</button>
-                    <span class="stt-tip" id="gameOutcomeSttStatus">点击开始识别</span>
-                </div>
-                <div style="height:6px;"></div>
-                <button type="button" id="postReviewBtn" class="secondary-btn" style="width:auto;padding:6px 12px;margin-bottom:8px;">生成复盘报告</button>
-                <div id="postReviewBox" class="analysis-box">暂无</div>
-
-                <h3>6) 高阶术语教学（段位解锁）</h3>
-                <div class="mini-grid-2">
-                    <div>
-                        <label for="termRankTier">当前段位</label>
-                        <select id="termRankTier">
-                            <option value="C">C（入门）</option>
-                            <option value="B">B（进阶）</option>
-                            <option value="A">A（高阶）</option>
-                            <option value="S">S（赛事）</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label for="termKeyword">关键词筛选</label>
-                        <input id="termKeyword" placeholder="如：警徽流/倒钩/票型">
-                    </div>
-                </div>
-                <button type="button" id="advancedTermsBtn" class="secondary-btn" style="width:auto;padding:6px 12px;margin-bottom:8px;">加载术语</button>
-                <div id="advancedTermsBox" class="analysis-box">暂无</div>
-
-                <h3>7) 线下面杀手势教学</h3>
-                <button type="button" id="gestureBtn" class="secondary-btn" style="width:auto;padding:6px 12px;margin-bottom:8px;">加载手势教学</button>
-                <div id="gestureBox" class="analysis-box">暂无</div>
-
-                <h3>8) AI助教成长计划（个人提升）</h3>
-                <button type="button" id="growthPlanBtn" class="secondary-btn" style="width:auto;padding:6px 12px;margin-bottom:8px;">生成成长计划</button>
-                <div id="growthPlanBox" class="analysis-box">暂无</div>
-            </div>
+        <div class="chart">
+          <svg viewBox="0 0 320 110" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <defs>
+              <linearGradient id="lineGlow" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#d8a8ff" stop-opacity="0.95"/>
+                <stop offset="100%" stop-color="#d8a8ff" stop-opacity="0.22"/>
+              </linearGradient>
+            </defs>
+            <g opacity="0.25" stroke="#6b5a92" stroke-width="1">
+              <line x1="0" y1="18" x2="320" y2="18"/>
+              <line x1="0" y1="38" x2="320" y2="38"/>
+              <line x1="0" y1="58" x2="320" y2="58"/>
+              <line x1="0" y1="78" x2="320" y2="78"/>
+              <line x1="0" y1="98" x2="320" y2="98"/>
+            </g>
+            <path d="M8 82 C 36 78, 54 76, 72 68 C 90 62, 102 50, 122 50 C 142 50, 150 62, 170 62 C 190 62, 206 48, 226 44 C 246 40, 268 38, 312 30"
+                  fill="none" stroke="#dba6ff" stroke-width="3" stroke-linecap="round"/>
+            <path d="M8 110 L8 82 C 36 78, 54 76, 72 68 C 90 62, 102 50, 122 50 C 142 50, 150 62, 170 62 C 190 62, 206 48, 226 44 C 246 40, 268 38, 312 30 L312 110 Z"
+                  fill="url(#lineGlow)"/>
+          </svg>
         </div>
-    </div>
-    </div>
-
-    <div id="panel-atlas" class="tab-panel">
-        <div class="card">
-            <h2>角色绘本图鉴</h2>
-            <div class="tab-card-grid">
-                <div class="atlas-card"><div class="atlas-icon">🔮</div><div class="atlas-name">预言家</div><div class="atlas-desc">每晚查验一名玩家身份</div></div>
-                <div class="atlas-card"><div class="atlas-icon">🧪</div><div class="atlas-name">女巫</div><div class="atlas-desc">解药与毒药各一次</div></div>
-                <div class="atlas-card"><div class="atlas-icon">🏹</div><div class="atlas-name">猎人</div><div class="atlas-desc">出局可带走一人</div></div>
-                <div class="atlas-card"><div class="atlas-icon">🐺</div><div class="atlas-name">狼人</div><div class="atlas-desc">夜晚刀人，白天伪装</div></div>
-                <div class="atlas-card"><div class="atlas-icon">🛡️</div><div class="atlas-name">守卫</div><div class="atlas-desc">每晚守护一名玩家</div></div>
-                <div class="atlas-card"><div class="atlas-icon">🍞</div><div class="atlas-name">平民</div><div class="atlas-desc">通过逻辑与票型找狼</div></div>
-            </div>
+        <div class="stats">
+          <div class="stat"><div class="stat-label">总局数</div><div class="stat-value">128</div></div>
+          <div class="stat"><div class="stat-label">平均胜率</div><div class="stat-value green">62.5%</div></div>
+          <div class="stat"><div class="stat-label">逻辑分</div><div class="stat-value blue">94</div></div>
         </div>
-    </div>
+      </div>
+    </section>
 
-    <div id="panel-strategy" class="tab-panel">
-        <div class="card">
-            <h2>智慧之灯 · 策略</h2>
-            <div class="analysis-box">原型中的“策略指南”已接入到逻辑看板页面的分析模块中。
+    <section class="actions">
+      <button type="button" id="goReviewBtn" class="action primary">
+        <span class="icon">🎙️</span>
+        <span class="desc">实时录音 / AI</span>
+        <span class="sub">点击进入复盘页并开始录音</span>
+      </button>
+      <div class="action secondary" aria-hidden="true">
+        <span class="icon">👥</span>
+        <span class="desc">智能匹配组局</span>
+        <span class="sub">先展示样式，暂不接功能</span>
+      </div>
+    </section>
 
-可点击底部「逻辑看板」查看：
-1. 实时概率与对抗关系
-2. 发言话术与情绪指导
-3. 心理博弈追问
-4. 赛后复盘
-5. 高阶术语、手势教学、成长计划</div>
-            <div style="height:8px;"></div>
-            <button id="jumpToBoardBtn" class="secondary-btn">前往逻辑看板</button>
+    <h2 class="section-title">推荐对局活动</h2>
+    <section class="event-list">
+      <article class="event-card">
+        <div class="thumb">🐺</div>
+        <div>
+          <div class="event-title">狼王争霸赛 · 上海S2赛区</div>
+          <div class="event-sub">奖励: 10,000金币 + 限定徽章称号</div>
+          <span class="tag">火热报名中</span>
         </div>
+        <button class="join-btn" type="button">参与</button>
+      </article>
+
+      <article class="event-card">
+        <div class="thumb" style="background:linear-gradient(135deg,#6f8e4b,#3b6a7a)">🌙</div>
+        <div>
+          <div class="event-title">【新板子】动物园惊魂夜</div>
+          <div class="event-sub">内测玩家招募中，体验全新技能互动</div>
+          <span class="tag">限时体验</span>
+        </div>
+        <button class="join-btn" type="button">参与</button>
+      </article>
+    </section>
+  </div>
+
+  <div id="encyclopediaPage" class="page hidden">
+    <header class="header-row">
+      <div class="title-wrap">
+        <button type="button" class="back-btn" data-back-home>‹</button>
+        <div>角色图鉴 & 术语百科</div>
+      </div>
+    </header>
+
+    <div class="tabs" id="encyTabWrap">
+      <button class="tab-chip active" data-tab="all">全部</button>
+      <button class="tab-chip" data-tab="god">神职阵营</button>
+      <button class="tab-chip" data-tab="wolf">狼人阵营</button>
+      <button class="tab-chip" data-tab="folk">平民阵营</button>
     </div>
 
-    <div id="panel-profile" class="tab-panel">
-        <div class="card">
-            <h2>个人中心</h2>
-            <div class="profile-metrics">
-                <div class="metric-box"><div class="metric-num" id="metricRounds">0</div><div class="metric-label">已打轮次</div></div>
-                <div class="metric-box"><div class="metric-num" id="metricSpeeches">0</div><div class="metric-label">发言条数</div></div>
-                <div class="metric-box"><div class="metric-num" id="metricAlive">0</div><div class="metric-label">存活人数</div></div>
-            </div>
-            <div style="height:10px;"></div>
-            <div class="analysis-box">可在「逻辑看板」持续录入发言和事件，本页会同步更新训练统计。</div>
-        </div>
+    <div class="role-strip">
+      <div class="role-item"><div class="avatar">🔮</div>预言家</div>
+      <div class="role-item"><div class="avatar">🧪</div>女巫</div>
+      <div class="role-item"><div class="avatar">🏹</div>猎人</div>
+      <div class="role-item"><div class="avatar">🐺</div>普通狼人</div>
     </div>
+
+    <article class="article">
+      <div class="article-title-row">
+        <div class="article-title">预言家进阶：警徽流的艺术</div>
+        <div class="article-date">2026-04-09</div>
+      </div>
+      <div class="article-text">当你在第一晚摸到 <b style="color:#ffe35f">金水</b> 时，不要急于暴露身份。成熟的预言家应通过 <b style="color:#ffe35f">警徽流</b> 传递后续验人信息，防止狼人通过 <b style="color:#ff7d7d">悍跳</b> 甚至 <b style="color:#ff7d7d">自刀</b> 来骗取好人信任...</div>
+      <div class="article-actions">
+        <span>👍 1.2k</span>
+        <button type="button" class="read-more" data-title="预言家进阶：警徽流的艺术" data-detail="当你拿到预言家时，优先建立可验证信息链。\n\n1. 警上发言先给结论，再给验人逻辑。\n2. 不要把全部狼坑一次点满，留出复盘空间。\n3. 警徽流建议用‘今晚验A，明晚验B’结构，让好人次日可验证。\n4. 若遭遇对跳，重点比较对手视角是否和票型一致。\n5. 被质疑时保持语速稳定，重复关键证据而非情绪对抗。">阅读全文</button>
+      </div>
+    </article>
+
+    <article class="article">
+      <div class="article-title-row">
+        <div class="article-title">狼人策略：如何打好倒钩</div>
+        <div class="article-date">2026-04-08</div>
+      </div>
+      <div class="article-text">一名成功的 <b style="color:#ff7d7d">倒钩狼</b> 核心在于站边。即便队友被 <b style="color:#ff7d7d">查杀</b>，也要义无反顾地投票给队友。这样做有利于后续拿高分“钢铁 <b style="color:#ffe35f">金水</b>”...</div>
+      <div class="article-actions">
+        <span>👍 856</span>
+        <button type="button" class="read-more" data-title="狼人策略：如何打好倒钩" data-detail="倒钩的关键不是演‘好人’，而是演‘有逻辑的好人’。\n\n1. 前两轮优先积累可信度，不急着抢主导权。\n2. 站边理由必须可复述，避免‘跟风站边’。\n3. 队友爆点后，倒钩位要做切割，但切割点要有事实依据。\n4. 中后期通过票型反推形成‘我一直一致’的人设。\n5. 终局避免突然转激进，保持前后一致性。">阅读全文</button>
+      </div>
+    </article>
+
+    <div class="term-box">
+      <div style="font-size:16px;font-weight:700;margin-bottom:8px;">常用术语速查表</div>
+      <div class="term-grid">
+        <div class="term-cell"><div class="term-word">银水</div><div class="term-desc">女巫解药救起的人</div></div>
+        <div class="term-cell"><div class="term-word" style="color:#ff8d8d;">悍跳</div><div class="term-desc">狼人伪装神职的行为</div></div>
+        <div class="term-cell"><div class="term-word">钢水</div><div class="term-desc">守卫成功守护的人</div></div>
+        <div class="term-cell"><div class="term-word" style="color:#ff8d8d;">聊爆</div><div class="term-desc">发言出现逻辑死循环</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="reviewPage" class="page hidden">
+    <header class="header-row">
+      <div class="title-wrap">
+        <button type="button" class="back-btn" data-back-home>‹</button>
+        <div>实时分析复盘</div>
+      </div>
+      <button type="button" id="recToggleBtn" class="rec-chip">● REC</button>
+    </header>
+
+    <section class="monitor-card">
+      <div class="wave" aria-hidden="true">
+        <span></span><span></span><span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <div id="listenText" class="listen-text">正在监听发言...</div>
+      <div id="liveQuote" class="quote">“等待语音输入...”</div>
+      <div id="reviewStatus" class="review-status">状态：待机</div>
+    </section>
+
+    <section class="timeline">
+      <article class="node">
+        <span class="dot"></span>
+        <div class="node-head"><span>第一日·警上</span><span id="nodeTime1">--:--</span></div>
+        <div class="node-card">
+          <div class="node-title">AI话术建议</div>
+          <div id="aiSpeech" class="node-desc">暂无</div>
+          <div class="node-tags"><span class="pill purple">逻辑漏洞</span><span class="pill yellow">高危行为</span></div>
+        </div>
+      </article>
+
+      <article class="node">
+        <span class="dot yellow"></span>
+        <div class="node-head"><span>第一日·放逐</span><span id="nodeTime2">--:--</span></div>
+        <div class="node-card">
+          <div class="node-title">当前胜率</div>
+          <div id="aiWinRate" class="node-desc">暂无</div>
+        </div>
+      </article>
+
+      <article class="node">
+        <span class="dot gray"></span>
+        <div class="node-head"><span>深度复盘报告</span><span>🔒</span></div>
+        <div class="node-card">
+          <div id="paywallBox" class="paywall">
+            <div id="paywallText" class="paywall-title">当前对局仅免费输出一次 AI 分析。<br/>如需全场深度心路复盘，请解锁深度报告。</div>
+            <button type="button" id="unlockBtn" class="pay-btn">支付 1.0 元查看</button>
+          </div>
+        </div>
+      </article>
+
+      <article class="node">
+        <span class="dot gray"></span>
+        <div class="node-head"><span>当前转写全文</span><span id="transcriptCounter">0 字</span></div>
+        <div class="node-card">
+          <div id="transcript" class="node-desc">暂无</div>
+        </div>
+      </article>
+    </section>
+  </div>
+
+  <div id="profilePage" class="page hidden">
+    <div class="profile-top">
+      <div class="profile-avatar">👤</div>
+      <div class="profile-name">逻辑玩家_2026</div>
+      <div class="profile-id">ID: 88726354 · 黄金段位</div>
+    </div>
+
+    <div class="vip-card">
+      <div class="vip-title-row">
+        <div class="vip-title">👑 黑金大师会员</div>
+        <span class="vip-badge">未开通</span>
+      </div>
+      <div class="vip-sub">解锁无限次 AI 深度复盘与专业话术库</div>
+      <button type="button" class="vip-pay">￥19.9/月 续费</button>
+    </div>
+
+    <div class="menu-list">
+      <div class="menu-item"><span>🕘 我的战绩对局</span><span class="menu-right">></span></div>
+      <div class="menu-item"><span>💳 按次付费记录</span><span class="menu-right">已消费 12.0 元</span></div>
+      <div class="menu-item"><span>🎙 录音识别偏好</span><span class="menu-right">></span></div>
+      <div class="menu-item"><span>🔔 消息通知</span><span class="switch" aria-hidden="true"></span></div>
+      <div class="menu-item"><span>⚙ 通用设置</span><span class="menu-right">></span></div>
+    </div>
+  </div>
+
+  <nav class="bottom-nav" aria-label="底部导航">
+    <div class="nav-item active" data-nav="home"><span class="icon">🏠</span><span>首页</span></div>
+    <div class="nav-item" data-nav="ency"><span class="icon">📖</span><span>百科</span></div>
+    <div class="nav-item" data-nav="review"><span class="icon">♻️</span><span>复盘</span></div>
+    <div class="nav-item" data-nav="profile"><span class="icon">👤</span><span>我的</span></div>
+  </nav>
 </div>
 
-<div class="bottom-nav">
-    <button type="button" class="tab-btn active" data-tab="board"><span class="icon">📘</span><span>逻辑看板</span></button>
-    <button type="button" class="tab-btn" data-tab="atlas"><span class="icon">👻</span><span>角色图鉴</span></button>
-    <button type="button" class="tab-btn" data-tab="strategy"><span class="icon">💡</span><span>策略指南</span></button>
-    <button type="button" class="tab-btn" data-tab="profile"><span class="icon">🏠</span><span>个人中心</span></button>
+<div id="detailModal" class="modal" role="dialog" aria-modal="true">
+  <div class="modal-card">
+    <div id="modalTitle" class="modal-title">标题</div>
+    <div id="modalText" class="modal-text">内容</div>
+    <button type="button" id="closeModalBtn" class="modal-close">关闭</button>
+  </div>
 </div>
 
 <script>
-    const state = {
-        gameStarted: false,
-        currentRound: 1,
-        totalPlayers: 0,
-        roundSpeeches: new Map(),
-        allSpeeches: [],
-        playerStates: new Map(),
-        votes: [],
-        skills: [],
-        lastWords: [],
-        /** MySQL 对局主键，POST /werewolf/history/games 返回 */
-        dbGameId: null
-    };
-
-    const defaultRolesByPlayers = {
-        6: {werewolf: 2, villager: 2, seer: 1, witch: 1, hunter: 0, guard: 0},
-        9: {werewolf: 3, villager: 3, seer: 1, witch: 1, hunter: 1, guard: 0},
-        12: {werewolf: 4, villager: 4, seer: 1, witch: 1, hunter: 1, guard: 1}
-    };
-
-    // 按用户要求写死后端地址，避免页面路径影响接口请求
-    const apiBasePrefix = "http://localhost:8012";
-
-    function apiUrl(path) {
-        const normalized = path.startsWith("/") ? path : ("/" + path);
-        return apiBasePrefix + normalized;
-    }
-
-    const el = {
-        totalPlayers: document.getElementById("totalPlayers"),
-        boardTemplate: document.getElementById("boardTemplate"),
-        gameMode: document.getElementById("gameMode"),
-        myPlayerId: document.getElementById("myPlayerId"),
-        myRoleHint: document.getElementById("myRoleHint"),
-        winningObjective: document.getElementById("winningObjective"),
-        knownWerewolfPlayers: document.getElementById("knownWerewolfPlayers"),
-        extraContext: document.getElementById("extraContext"),
-        startGameBtn: document.getElementById("startGameBtn"),
-        nextRoundBtn: document.getElementById("nextRoundBtn"),
-        analyzeRoundBtn: document.getElementById("analyzeRoundBtn"),
-        statusLine: document.getElementById("statusLine"),
-        roundInfo: document.getElementById("roundInfo"),
-        progressInfo: document.getElementById("progressInfo"),
-        playerSpeechContainer: document.getElementById("playerSpeechContainer"),
-        speechTimeline: document.getElementById("speechTimeline"),
-        debugBaseUrl: document.getElementById("debugBaseUrl"),
-        debugRequestLog: document.getElementById("debugRequestLog"),
-        speechAdviceBox: document.getElementById("speechAdviceBox"),
-        roleTableBox: document.getElementById("roleTableBox"),
-        winRateTableBox: document.getElementById("winRateTableBox"),
-        mcHeatmapBox: document.getElementById("mcHeatmapBox"),
-        refreshMcBtn: document.getElementById("refreshMcBtn"),
-        psychologyBtn: document.getElementById("psychologyBtn"),
-        psychologyBox: document.getElementById("psychologyBox"),
-        postReviewBtn: document.getElementById("postReviewBtn"),
-        postReviewBox: document.getElementById("postReviewBox"),
-        gameOutcome: document.getElementById("gameOutcome"),
-        termRankTier: document.getElementById("termRankTier"),
-        termKeyword: document.getElementById("termKeyword"),
-        advancedTermsBtn: document.getElementById("advancedTermsBtn"),
-        advancedTermsBox: document.getElementById("advancedTermsBox"),
-        gestureBtn: document.getElementById("gestureBtn"),
-        gestureBox: document.getElementById("gestureBox"),
-        growthPlanBtn: document.getElementById("growthPlanBtn"),
-        growthPlanBox: document.getElementById("growthPlanBox"),
-        topPhaseChip: document.getElementById("topPhaseChip"),
-        metricRounds: document.getElementById("metricRounds"),
-        metricSpeeches: document.getElementById("metricSpeeches"),
-        metricAlive: document.getElementById("metricAlive"),
-        jumpToBoardBtn: document.getElementById("jumpToBoardBtn"),
-        toggleContinuousBtn: document.getElementById("toggleContinuousBtn"),
-        startContinuousBtn: document.getElementById("startContinuousBtn"),
-        continuousSttStatus: document.getElementById("continuousSttStatus"),
-        voteRound: document.getElementById("voteRound"),
-        voteType: document.getElementById("voteType"),
-        voteVoter: document.getElementById("voteVoter"),
-        voteTarget: document.getElementById("voteTarget"),
-        addVoteBtn: document.getElementById("addVoteBtn"),
-        voteList: document.getElementById("voteList"),
-        skillNight: document.getElementById("skillNight"),
-        skillPhase: document.getElementById("skillPhase"),
-        skillAction: document.getElementById("skillAction"),
-        skillActor: document.getElementById("skillActor"),
-        skillTargets: document.getElementById("skillTargets"),
-        skillDetails: document.getElementById("skillDetails"),
-        addSkillBtn: document.getElementById("addSkillBtn"),
-        skillList: document.getElementById("skillList"),
-        lwPlayer: document.getElementById("lwPlayer"),
-        lwRound: document.getElementById("lwRound"),
-        lwContent: document.getElementById("lwContent"),
-        addLwBtn: document.getElementById("addLwBtn"),
-        lwList: document.getElementById("lwList")
-    };
-
-    function nowTime() {
-        return new Date().toLocaleTimeString("zh-CN", {hour12: false});
-    }
-
-    function appendRequestLog(text) {
-        if (!el.debugRequestLog) {
-            return;
-        }
-        if (el.debugRequestLog.textContent === "暂无请求记录") {
-            el.debugRequestLog.innerHTML = "";
-        }
-        const item = document.createElement("div");
-        item.className = "debug-log-item";
-        item.textContent = text;
-        el.debugRequestLog.prepend(item);
-    }
-
-    const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
-    let activeRecognition = null;
-    let activeSttButton = null;
-    let activeSttStatusEl = null;
-    let continuousModeEnabled = false;
-    let continuousActive = false;
-    let continuousQueue = [];
-    let continuousIndex = -1;
-
-    function stopActiveRecognition() {
-        if (activeRecognition) {
-            try {
-                activeRecognition.stop();
-            } catch (ignore) {}
-        }
-        if (activeSttButton) {
-            activeSttButton.classList.remove("running");
-            activeSttButton.textContent = "🎤 语音转文字";
-        }
-        if (activeSttStatusEl) {
-            activeSttStatusEl.textContent = "识别结束";
-        }
-        activeRecognition = null;
-        activeSttButton = null;
-        activeSttStatusEl = null;
-    }
-
-    function refreshContinuousUi() {
-        if (el.toggleContinuousBtn) {
-            el.toggleContinuousBtn.textContent = continuousModeEnabled ? "连续录音：开启" : "连续录音：关闭";
-            el.toggleContinuousBtn.classList.toggle("running", continuousModeEnabled);
-        }
-        if (el.startContinuousBtn) {
-            el.startContinuousBtn.disabled = !continuousModeEnabled;
-            el.startContinuousBtn.textContent = continuousActive ? "连续录入进行中" : "开始连续录入";
-            el.startContinuousBtn.classList.toggle("running", continuousActive);
-        }
-        if (el.continuousSttStatus) {
-            if (!continuousModeEnabled) {
-                el.continuousSttStatus.textContent = "模式关闭：仅单个玩家录音";
-            } else if (!continuousActive) {
-                el.continuousSttStatus.textContent = "模式已开启：点击“开始连续录入”";
-            }
-        }
-    }
-
-    function endContinuousSession(msg) {
-        continuousActive = false;
-        continuousQueue = [];
-        continuousIndex = -1;
-        if (el.continuousSttStatus && msg) {
-            el.continuousSttStatus.textContent = msg;
-        }
-        refreshContinuousUi();
-    }
-
-    function buildContinuousQueue() {
-        const queue = [];
-        for (let i = 1; i <= state.totalPlayers; i++) {
-            const ps = getPlayerState(i);
-            if (!ps.alive) continue;
-            if (state.roundSpeeches.has(i)) continue;
-            queue.push(i);
-        }
-        return queue;
-    }
-
-    function appendSpeechText(targetEl, text) {
-        if (!targetEl || !text) return;
-        const exists = (targetEl.value || "").trim();
-        if (!exists) {
-            targetEl.value = text;
-            return;
-        }
-        const sep = targetEl.tagName === "TEXTAREA" ? "\n" : " ";
-        targetEl.value = exists + sep + text;
-    }
-
-    function getBtnPlayerId(btn) {
-        if (!btn) return null;
-        const raw = btn.getAttribute("data-player");
-        const v = Number(raw);
-        return Number.isInteger(v) && v > 0 ? v : null;
-    }
-
-    function advanceContinuousSession() {
-        if (!continuousActive) return;
-        continuousIndex += 1;
-        while (continuousIndex < continuousQueue.length) {
-            const playerId = continuousQueue[continuousIndex];
-            const btn = document.getElementById("speech-stt-" + playerId);
-            if (btn && !btn.disabled) {
-                if (el.continuousSttStatus) {
-                    el.continuousSttStatus.textContent = "连续录入中：请录入玩家" + playerId + "，说完点“停止并下一位”";
-                }
-                handleSttPress(btn, true);
-                return;
-            }
-            continuousIndex += 1;
-        }
-        endContinuousSession("连续录入完成");
-    }
-
-    function startContinuousSession() {
-        if (!SpeechRecognitionCtor) {
-            alert("当前浏览器不支持语音识别，建议使用 Chrome/Edge。");
-            return;
-        }
-        if (!state.gameStarted) {
-            alert("请先点击“开始对局”");
-            return;
-        }
-        stopActiveRecognition();
-        continuousQueue = buildContinuousQueue();
-        if (!continuousQueue.length) {
-            endContinuousSession("没有可录入玩家（可能本轮都已提交或已死亡）");
-            return;
-        }
-        continuousActive = true;
-        continuousIndex = 0;
-        refreshContinuousUi();
-        const firstPid = continuousQueue[0];
-        const firstBtn = document.getElementById("speech-stt-" + firstPid);
-        if (!firstBtn) {
-            endContinuousSession("连续录入失败：未找到玩家录音按钮");
-            return;
-        }
-        if (el.continuousSttStatus) {
-            el.continuousSttStatus.textContent = "连续录入中：请录入玩家" + firstPid + "，说完点“停止并下一位”";
-        }
-        handleSttPress(firstBtn, true);
-    }
-
-    function handleSttPress(btn, fromContinuousStep) {
-        const targetId = btn.getAttribute("data-target");
-        const statusId = btn.getAttribute("data-status");
-        const targetEl = targetId ? document.getElementById(targetId) : null;
-        const statusEl = statusId ? document.getElementById(statusId) : null;
-        if (!targetEl) {
-            alert("语音目标输入框不存在");
-            return;
-        }
-        if (!SpeechRecognitionCtor) {
-            alert("当前浏览器不支持语音识别，建议使用 Chrome/Edge。");
-            return;
-        }
-
-        if (activeSttButton === btn) {
-            stopActiveRecognition();
-            if (continuousActive) {
-                advanceContinuousSession();
-            }
-            return;
-        }
-        stopActiveRecognition();
-
-        const recog = new SpeechRecognitionCtor();
-        recog.lang = "zh-CN";
-        recog.continuous = !continuousActive;
-        recog.interimResults = false;
-        recog.maxAlternatives = 1;
-
-        let roundText = "";
-        recog.onstart = () => {
-            activeRecognition = recog;
-            activeSttButton = btn;
-            activeSttStatusEl = statusEl || null;
-            btn.classList.add("running");
-            btn.textContent = continuousActive ? "⏹ 停止并下一位" : "⏹ 停止识别";
-            if (statusEl) statusEl.textContent = "识别中...";
-        };
-        recog.onresult = (evt) => {
-            for (let i = evt.resultIndex; i < evt.results.length; i++) {
-                const phrase = (evt.results[i][0] && evt.results[i][0].transcript) ? evt.results[i][0].transcript.trim() : "";
-                if (phrase) {
-                    roundText += (roundText ? " " : "") + phrase;
-                }
-            }
-            if (roundText) {
-                appendSpeechText(targetEl, roundText);
-                roundText = "";
-                if (statusEl) statusEl.textContent = "已追加识别文本";
-            }
-        };
-        recog.onerror = (evt) => {
-            if (statusEl) statusEl.textContent = "识别失败: " + (evt.error || "未知错误");
-        };
-        recog.onend = () => {
-            if (activeSttButton === btn) {
-                stopActiveRecognition();
-                if (continuousActive && fromContinuousStep) {
-                    advanceContinuousSession();
-                }
-            }
-        };
-        recog.start();
-    }
-
-    function bindSttButton(btn) {
-        if (!btn) return;
-        btn.addEventListener("click", () => handleSttPress(btn, false));
-    }
-
-    function readRoleComposition() {
-        return {
-            狼人: Number(document.getElementById("role-werewolf").value || 0),
-            平民: Number(document.getElementById("role-villager").value || 0),
-            预言家: Number(document.getElementById("role-seer").value || 0),
-            女巫: Number(document.getElementById("role-witch").value || 0),
-            猎人: Number(document.getElementById("role-hunter").value || 0),
-            守卫: Number(document.getElementById("role-guard").value || 0)
-        };
-    }
-
-    function applyDefaultRoleComposition(totalPlayers) {
-        const target = defaultRolesByPlayers[totalPlayers];
-        if (!target) return;
-        document.getElementById("role-werewolf").value = target.werewolf;
-        document.getElementById("role-villager").value = target.villager;
-        document.getElementById("role-seer").value = target.seer;
-        document.getElementById("role-witch").value = target.witch;
-        document.getElementById("role-hunter").value = target.hunter;
-        document.getElementById("role-guard").value = target.guard;
-        el.gameMode.value = totalPlayers + "人标准局";
-    }
-
-    function applyBoardTemplate() {
-        const v = el.boardTemplate.value;
-        if (v === "std6") {
-            el.totalPlayers.value = "6";
-            applyDefaultRoleComposition(6);
-        } else if (v === "std9") {
-            el.totalPlayers.value = "9";
-            applyDefaultRoleComposition(9);
-        } else if (v === "std12") {
-            el.totalPlayers.value = "12";
-            applyDefaultRoleComposition(12);
-        }
-    }
-
-    function renderSituationLists() {
-        if (el.voteList) {
-            el.voteList.innerHTML = state.votes.map((v, i) => `
-                <div class="tag-item">
-                    <span>第${v.round}轮 ${v.voteType} 玩家${v.voterId}→${v.targetId == null ? "弃票" : "玩家" + v.targetId}</span>
-                    <button type="button" data-vi="${i}">删</button>
-                </div>`).join("") || "<span style='color:#9ca3af'>暂无投票记录</span>";
-            el.voteList.querySelectorAll("button[data-vi]").forEach(btn => {
-                btn.addEventListener("click", () => {
-                    state.votes.splice(Number(btn.getAttribute("data-vi")), 1);
-                    renderSituationLists();
-                });
-            });
-        }
-        if (el.skillList) {
-            el.skillList.innerHTML = state.skills.map((s, i) => `
-                <div class="tag-item">
-                    <span>第${s.nightOrDay}段 ${s.phaseTag} ${s.actionType} 目标${(s.targetPlayerIds || []).join(",") || "-"}</span>
-                    <button type="button" data-si="${i}">删</button>
-                </div>`).join("") || "<span style='color:#9ca3af'>暂无技能记录</span>";
-            el.skillList.querySelectorAll("button[data-si]").forEach(btn => {
-                btn.addEventListener("click", () => {
-                    state.skills.splice(Number(btn.getAttribute("data-si")), 1);
-                    renderSituationLists();
-                });
-            });
-        }
-        if (el.lwList) {
-            el.lwList.innerHTML = state.lastWords.map((w, i) => `
-                <div class="tag-item">
-                    <span>玩家${w.playerId} 遗言：${(w.content || "").slice(0, 40)}${(w.content || "").length > 40 ? "…" : ""}</span>
-                    <button type="button" data-li="${i}">删</button>
-                </div>`).join("") || "<span style='color:#9ca3af'>暂无遗言</span>";
-            el.lwList.querySelectorAll("button[data-li]").forEach(btn => {
-                btn.addEventListener("click", () => {
-                    state.lastWords.splice(Number(btn.getAttribute("data-li")), 1);
-                    renderSituationLists();
-                });
-            });
-        }
-    }
-
-    function initPlayerStates(totalPlayers) {
-        state.playerStates = new Map();
-        for (let i = 1; i <= totalPlayers; i++) {
-            state.playerStates.set(i, {alive: true, revealedRole: ""});
-        }
-    }
-
-    function getPlayerState(playerId) {
-        if (!state.playerStates.has(playerId)) {
-            state.playerStates.set(playerId, {alive: true, revealedRole: ""});
-        }
-        return state.playerStates.get(playerId);
-    }
-
-    function parseKnownWerewolfPlayers() {
-        const raw = (el.knownWerewolfPlayers.value || "").trim();
-        if (!raw) {
-            return [];
-        }
-        const values = raw.split(/[,，\s]+/).map(v => Number(v)).filter(v => Number.isInteger(v) && v > 0 && v <= state.totalPlayers);
-        return [...new Set(values)];
-    }
-
-    function getDeadPlayers() {
-        const dead = [];
-        for (let i = 1; i <= state.totalPlayers; i++) {
-            const ps = getPlayerState(i);
-            if (!ps.alive) {
-                dead.push(i);
-            }
-        }
-        return dead;
-    }
-
-    function getRevealedIdentities() {
-        const identities = {};
-        for (let i = 1; i <= state.totalPlayers; i++) {
-            const ps = getPlayerState(i);
-            if (ps.revealedRole) {
-                identities[i] = ps.revealedRole;
-            }
-        }
-        return identities;
-    }
-
-    function getAlivePlayerCount() {
-        return state.totalPlayers - getDeadPlayers().length;
-    }
-
-    async function createHistoryGame() {
-        const body = {
-            sessionUuid: null,
-            totalPlayers: state.totalPlayers,
-            gameMode: el.gameMode.value,
-            boardTemplateId: el.boardTemplate ? el.boardTemplate.value : "custom",
-            myPlayerId: Number(el.myPlayerId.value || 0) || null,
-            myRoleHint: el.myRoleHint.value || null,
-            winningObjective: el.winningObjective.value || null,
-            roleComposition: readRoleComposition()
-        };
-        const r = await postJson(apiUrl("/werewolf/history/games"), body);
-        state.dbGameId = r.id;
-        return r;
-    }
-
-    async function saveHistorySnapshot(snapshotType, phaseLabel) {
-        if (!state.dbGameId) return;
-        const saveBody = {
-            roundNumber: state.currentRound,
-            phaseLabel: phaseLabel || ("第" + state.currentRound + "轮"),
-            snapshotType: snapshotType || "STATE",
-            payload: buildBaseRequest()
-        };
-        await postJson(apiUrl("/werewolf/history/games/" + state.dbGameId + "/snapshots"), saveBody);
-    }
-
-    function buildBaseRequest() {
-        return {
-            totalPlayers: state.totalPlayers,
-            gameMode: el.gameMode.value,
-            phase: "第" + state.currentRound + "轮白天发言",
-            myPlayerId: Number(el.myPlayerId.value || 0),
-            myRoleHint: el.myRoleHint.value,
-            winningObjective: el.winningObjective.value,
-            roleComposition: readRoleComposition(),
-            speeches: state.allSpeeches,
-            extraContext: el.extraContext.value,
-            deadPlayers: getDeadPlayers(),
-            revealedIdentities: getRevealedIdentities(),
-            knownWerewolfPlayers: parseKnownWerewolfPlayers(),
-            boardTemplateId: el.boardTemplate ? el.boardTemplate.value : "custom",
-            voteRecords: state.votes.map(v => ({
-                round: v.round,
-                voteType: v.voteType,
-                voterId: v.voterId,
-                targetId: v.targetId
-            })),
-            skillEvents: state.skills.map(s => ({
-                nightOrDay: s.nightOrDay,
-                phaseTag: s.phaseTag,
-                actionType: s.actionType,
-                actorPlayerId: s.actorPlayerId,
-                targetPlayerIds: s.targetPlayerIds,
-                details: s.details
-            })),
-            lastWordRecords: state.lastWords.map(w => ({
-                playerId: w.playerId,
-                roundOrDay: w.roundOrDay,
-                content: w.content
-            })),
-            observedSignals: [],
-            gameOutcomeNarrative: el.gameOutcome ? el.gameOutcome.value : ""
-        };
-    }
-
-    async function postJson(url, body) {
-        appendRequestLog("[" + nowTime() + "] 请求 -> POST " + url);
-        const resp = await fetch(url, {
-            method: "POST",
-            headers: {"Content-Type": "application/json"},
-            body: JSON.stringify(body)
-        });
-        if (!resp.ok) {
-            const text = await resp.text();
-            appendRequestLog("[" + nowTime() + "] 失败 <- " + resp.status + " " + url);
-            const err = new Error("调用失败(" + resp.status + "): " + text);
-            err.status = resp.status;
-            throw err;
-        }
-        appendRequestLog("[" + nowTime() + "] 成功 <- " + resp.status + " " + url);
-        return resp.json();
-    }
-
-    function is404(err) {
-        return err && Number(err.status) === 404;
-    }
-
-    function updateStatus(text) {
-        el.statusLine.textContent = text;
-    }
-
-    function updateProgress() {
-        const aliveCount = getAlivePlayerCount();
-        el.roundInfo.textContent = "第" + state.currentRound + "轮";
-        el.progressInfo.textContent = state.roundSpeeches.size + "/" + aliveCount + " 已提交(存活)";
-        if (el.topPhaseChip) {
-            el.topPhaseChip.textContent = "第" + state.currentRound + "天 · 白天发言";
-        }
-        const finished = state.roundSpeeches.size >= aliveCount;
-        el.analyzeRoundBtn.disabled = !finished;
-        el.nextRoundBtn.disabled = !finished;
-        refreshProfileMetrics();
-    }
-
-    function refreshProfileMetrics() {
-        if (el.metricRounds) {
-            el.metricRounds.textContent = String(Math.max(0, state.currentRound - (state.gameStarted ? 0 : 1)));
-        }
-        if (el.metricSpeeches) {
-            el.metricSpeeches.textContent = String(state.allSpeeches.length);
-        }
-        if (el.metricAlive) {
-            el.metricAlive.textContent = String(getAlivePlayerCount());
-        }
-    }
-
-    function appendTimeline(playerId, speech) {
-        const div = document.createElement("div");
-        div.className = "timeline-item";
-        div.textContent = "第" + state.currentRound + "轮 - 玩家" + playerId + "：" + speech;
-        el.speechTimeline.prepend(div);
-    }
-
-    function renderPlayerInputs() {
-        el.playerSpeechContainer.innerHTML = "";
-        for (let i = 1; i <= state.totalPlayers; i++) {
-            const ps = getPlayerState(i);
-            const card = document.createElement("div");
-            card.className = "player-card";
-            card.innerHTML = `
-                <div class="player-header">玩家${i}</div>
-                <div class="player-state-row">
-                    <label><input type="checkbox" id="dead-${i}" ${ps.alive ? "" : "checked"}>已死亡</label>
-                    <select id="revealed-${i}">
-                        <option value="">未翻牌</option>
-                        <option value="狼人" ${ps.revealedRole === "狼人" ? "selected" : ""}>狼人</option>
-                        <option value="平民" ${ps.revealedRole === "平民" ? "selected" : ""}>平民</option>
-                        <option value="预言家" ${ps.revealedRole === "预言家" ? "selected" : ""}>预言家</option>
-                        <option value="女巫" ${ps.revealedRole === "女巫" ? "selected" : ""}>女巫</option>
-                        <option value="猎人" ${ps.revealedRole === "猎人" ? "selected" : ""}>猎人</option>
-                        <option value="守卫" ${ps.revealedRole === "守卫" ? "selected" : ""}>守卫</option>
-                    </select>
-                </div>
-                <div class="speech-label">玩家${i}发言内容</div>
-                <textarea id="speech-${i}" placeholder="输入玩家${i}本轮发言"></textarea>
-                <div class="stt-row">
-                    <button type="button" class="stt-btn" id="speech-stt-${i}" data-player="${i}" data-target="speech-${i}" data-status="speechSttStatus-${i}">🎤 录入玩家${i}</button>
-                    <span class="stt-tip" id="speechSttStatus-${i}">点击开始识别</span>
-                </div>
-                <div style="height:6px;"></div>
-                <button id="submit-${i}">提交玩家${i}发言</button>
-            `;
-            el.playerSpeechContainer.appendChild(card);
-
-            const deadCheckbox = card.querySelector("#dead-" + i);
-            const revealedSelect = card.querySelector("#revealed-" + i);
-            const ta = card.querySelector("#speech-" + i);
-            const speechSttBtn = card.querySelector("#speech-stt-" + i);
-            const btn = card.querySelector("#submit-" + i);
-
-            const syncCardByState = () => {
-                const cur = getPlayerState(i);
-                if (!cur.alive) {
-                    ta.disabled = true;
-                    btn.disabled = true;
-                    if (speechSttBtn) speechSttBtn.disabled = true;
-                    btn.textContent = "玩家" + i + "已死亡(无需发言)";
-                    if (state.roundSpeeches.has(i)) {
-                        state.roundSpeeches.delete(i);
-                    }
-                } else if (state.roundSpeeches.has(i)) {
-                    ta.disabled = true;
-                    btn.disabled = true;
-                    if (speechSttBtn) speechSttBtn.disabled = true;
-                    btn.textContent = "本轮已提交";
-                } else {
-                    ta.disabled = false;
-                    btn.disabled = false;
-                    if (speechSttBtn) speechSttBtn.disabled = false;
-                    btn.textContent = "提交玩家" + i + "发言";
-                }
-            };
-
-            deadCheckbox.addEventListener("change", () => {
-                const cur = getPlayerState(i);
-                cur.alive = !deadCheckbox.checked;
-                if (cur.alive) {
-                    if (cur.revealedRole) {
-                        cur.revealedRole = "";
-                        revealedSelect.value = "";
-                    }
-                    appendTimeline(i, "状态变更：恢复为存活");
-                } else {
-                    const roleTip = cur.revealedRole ? ("，翻牌身份：" + cur.revealedRole) : "";
-                    appendTimeline(i, "状态变更：已死亡" + roleTip);
-                }
-                syncCardByState();
-                updateProgress();
-            });
-
-            revealedSelect.addEventListener("change", () => {
-                const cur = getPlayerState(i);
-                cur.revealedRole = revealedSelect.value;
-                if (cur.revealedRole && cur.alive) {
-                    cur.alive = false;
-                    deadCheckbox.checked = true;
-                    appendTimeline(i, "状态变更：已死亡，翻牌身份：" + cur.revealedRole);
-                } else if (cur.revealedRole) {
-                    appendTimeline(i, "翻牌身份更新为：" + cur.revealedRole);
-                }
-                syncCardByState();
-                updateProgress();
-            });
-
-            btn.addEventListener("click", async () => {
-                const cur = getPlayerState(i);
-                if (!cur.alive) {
-                    alert("该玩家已死亡，本轮无需发言");
-                    return;
-                }
-                const speech = ta.value.trim();
-                if (!speech) {
-                    alert("请先填写发言内容");
-                    return;
-                }
-                if (state.roundSpeeches.has(i)) {
-                    alert("该玩家本轮已提交");
-                    return;
-                }
-                state.roundSpeeches.set(i, speech);
-                state.allSpeeches.push({playerId: i, speech: "[第" + state.currentRound + "轮] " + speech});
-                ta.disabled = true;
-                btn.disabled = true;
-                appendTimeline(i, speech);
-                updateProgress();
-                updateStatus("已记录玩家" + i + "发言，正在做实时身份概率更新...");
-                await runRealtimeRoleAnalysis();
-
-                if (state.roundSpeeches.size >= getAlivePlayerCount()) {
-                    updateStatus("本轮全员发言已完成，正在执行本轮完整分析...");
-                    await runRoundFullAnalysis();
-                } else {
-                    updateStatus("继续收集其余玩家发言...");
-                }
-            });
-            if (speechSttBtn) {
-                bindSttButton(speechSttBtn);
-            }
-            syncCardByState();
-        }
-    }
-
-    function renderRoleAnalysis(data) {
-        if (!data || !Array.isArray(data.playerAssessments) || data.playerAssessments.length === 0) {
-            el.roleTableBox.textContent = "暂无有效角色概率结果";
-            return;
-        }
-        let html = '<table class="table"><tr><th>玩家</th><th>高概率身份</th><th>置信度</th><th>概率分布(Top)</th><th>依据</th></tr>';
-        for (const item of data.playerAssessments) {
-            const probs = (item.roleProbabilities || [])
-                .slice(0, 3)
-                .map(p => `${p.role}:${Math.round((p.probability || 0) * 100)}%`)
-                .join(" / ");
-            const evidence = (item.keyEvidence || []).join("；");
-            html += `<tr>
-                <td>${item.playerId ?? "-"}</td>
-                <td>${item.likelyRole ?? "-"}</td>
-                <td>${Math.round((item.confidence || 0) * 100)}%</td>
-                <td>${probs || "-"}</td>
-                <td>${evidence || "-"}</td>
-            </tr>`;
-        }
-        html += "</table>";
-        el.roleTableBox.innerHTML = html;
-    }
-
-    function renderWinRates(data) {
-        if (!data || !Array.isArray(data.roleWinRates) || data.roleWinRates.length === 0) {
-            el.winRateTableBox.textContent = "暂无胜率结果";
-            return;
-        }
-        let html = '<table class="table"><tr><th>角色/阵营</th><th>胜率</th></tr>';
-        for (const item of data.roleWinRates) {
-            html += `<tr><td>${item.role ?? "-"}</td><td>${Math.round((item.winRate || 0) * 100)}%</td></tr>`;
-        }
-        html += "</table>";
-        if (data.reasoningSummary) {
-            html += `<div style="margin-top:8px;color:#4b5563;">${data.reasoningSummary}</div>`;
-        }
-        el.winRateTableBox.innerHTML = html;
-    }
-
-    function renderSpeechAdvice(data) {
-        if (!data || !data.speechStrategy) {
-            el.speechAdviceBox.textContent = "暂无话术建议";
-            return;
-        }
-        const s = data.speechStrategy;
-        const lines = [];
-        lines.push("目标：" + (s.objective || "-"));
-        lines.push("");
-        lines.push("建议话术：");
-        lines.push(s.suggestedSpeech || "-");
-        lines.push("");
-        lines.push("战术点：" + ((s.tacticalPoints || []).join("；") || "-"));
-        lines.push("禁忌点：" + ((s.forbiddenPoints || []).join("；") || "-"));
-        if (data.emotionGuide) {
-            const eg = data.emotionGuide;
-            lines.push("");
-            lines.push("【情绪与演技 · 模块二】建议强度 " + (eg.intensity0to100 != null ? eg.intensity0to100 : "-") + "%");
-            lines.push(eg.postureSummary || "");
-            (eg.actingTips || []).forEach(t => lines.push(" · " + t));
-        }
-        const pushTemplates = (title, arr) => {
-            if (arr && arr.length) {
-                lines.push("");
-                lines.push("【" + title + "】");
-                arr.forEach((x, i) => lines.push((i + 1) + ". " + x));
-            }
-        };
-        pushTemplates("防御话术模板", data.defenseSpeechTemplates);
-        pushTemplates("进攻/归票模板", data.attackSpeechTemplates);
-        pushTemplates("表水模板", data.tableWaterTemplates);
-        if (data.reasoningSummary) {
-            lines.push("");
-            lines.push("说明：" + data.reasoningSummary);
-        }
-        el.speechAdviceBox.textContent = lines.join("\n");
-    }
-
-    function renderMcHeatmap(mc) {
-        if (!el.mcHeatmapBox) return;
-        if (!mc || !Array.isArray(mc.playerMarginals) || mc.playerMarginals.length === 0) {
-            el.mcHeatmapBox.textContent = (mc && mc.note) ? mc.note : "暂无蒙特卡洛结果";
-            return;
-        }
-        const parts = [];
-        parts.push("采样次数：" + (mc.sampleCount || 0) + "。" + (mc.note || ""));
-        parts.push("");
-        const grid = document.createElement("div");
-        grid.className = "heatmap";
-        for (const p of mc.playerMarginals) {
-            const w = Math.round(((p.wolfProbability != null ? p.wolfProbability : 0) * 100));
-            const t = Math.max(0, 100 - w);
-            const cell = document.createElement("div");
-            cell.className = "heat-cell";
-            const top = (p.roleProbabilities || []).slice(0, 2).map(r => r.role + Math.round((r.probability || 0) * 100) + "%").join(" / ");
-            cell.innerHTML = `
-                <div class="num">玩家${p.playerId}</div>
-                <div class="heat-bar">
-                    <div class="heat-wolf" style="width:${w}%"></div>
-                    <div class="heat-town" style="width:${t}%"></div>
-                </div>
-                <div class="heat-meta">狼面 ${w}% / 非狼倾向 ${t}%</div>
-                <div class="heat-meta">Top: ${top || "-"}</div>
-            `;
-            grid.appendChild(cell);
-        }
-        el.mcHeatmapBox.innerHTML = "";
-        const pre = document.createElement("div");
-        pre.style.whiteSpace = "pre-wrap";
-        pre.style.fontSize = "13px";
-        pre.style.marginBottom = "8px";
-        pre.textContent = parts.join("\n");
-        el.mcHeatmapBox.appendChild(pre);
-        el.mcHeatmapBox.appendChild(grid);
-    }
-
-    async function runMonteCarlo() {
-        if (!state.gameStarted || state.totalPlayers <= 0) return;
-        try {
-            const req = buildBaseRequest();
-            const mc = await postJson(apiUrl("/werewolf/monte-carlo?samples=4000"), req);
-            renderMcHeatmap(mc);
-        } catch (e) {
-            if (el.mcHeatmapBox) {
-                el.mcHeatmapBox.textContent = "蒙特卡洛失败：" + e.message;
-            }
-        }
-    }
-
-    function renderPsychology(d) {
-        if (!el.psychologyBox) return;
-        if (!d) {
-            el.psychologyBox.textContent = "无数据";
-            return;
-        }
-        const lines = [];
-        lines.push("【观察清单】");
-        (d.observationChecklist || []).forEach(x => lines.push(" · " + x));
-        lines.push("");
-        lines.push("【施压追问】");
-        (d.pressureQuestions || []).forEach(x => lines.push(" · " + x));
-        lines.push("");
-        lines.push("【对方可能反应】");
-        (d.predictedReactions || []).forEach(x => lines.push(" · " + x));
-        lines.push("");
-        lines.push("【应对策略】");
-        (d.counterStrategies || []).forEach(x => lines.push(" · " + x));
-        if (d.reasoningSummary) {
-            lines.push("");
-            lines.push(d.reasoningSummary);
-        }
-        el.psychologyBox.textContent = lines.join("\n");
-    }
-
-    async function runPsychologyCoach() {
-        try {
-            updateStatus("正在生成心理博弈指导…");
-            const data = await postJson(apiUrl("/werewolf/psychology-coach"), buildBaseRequest());
-            renderPsychology(data);
-            updateStatus("心理博弈指导已更新");
-        } catch (e) {
-            updateStatus("心理博弈失败：" + e.message);
-        }
-    }
-
-    function renderPostReview(d) {
-        if (!el.postReviewBox) return;
-        if (!d) {
-            el.postReviewBox.textContent = "无数据";
-            return;
-        }
-        const lines = [];
-        lines.push("【结果概述】");
-        lines.push(d.outcomeSummary || "-");
-        lines.push("");
-        lines.push("【逻辑漏洞】");
-        (d.logicVulnerabilities || []).forEach(x => lines.push(" · " + x));
-        lines.push("");
-        lines.push("【情绪暴露点】");
-        (d.emotionVulnerabilities || []).forEach(x => lines.push(" · " + x));
-        lines.push("");
-        lines.push("【决策失误】");
-        (d.decisionMistakes || []).forEach(x => lines.push(" · " + x));
-        lines.push("");
-        lines.push("【改进建议】");
-        (d.improvementSuggestions || []).forEach(x => lines.push(" · " + x));
-        lines.push("");
-        lines.push("【学习方向】");
-        (d.learningResources || []).forEach(x => lines.push(" · " + x));
-        if (d.reasoningSummary) {
-            lines.push("");
-            lines.push(d.reasoningSummary);
-        }
-        el.postReviewBox.textContent = lines.join("\n");
-    }
-
-    async function runPostGameReview() {
-        try {
-            updateStatus("正在生成赛后复盘…");
-            const data = await postJson(apiUrl("/werewolf/post-game-review"), buildBaseRequest());
-            renderPostReview(data);
-            updateStatus("复盘报告已生成");
-        } catch (e) {
-            updateStatus("复盘失败：" + e.message);
-        }
-    }
-
-    function renderAdvancedTerms(data) {
-        if (!el.advancedTermsBox) return;
-        if (!data || !Array.isArray(data.cards) || data.cards.length === 0) {
-            el.advancedTermsBox.textContent = "暂无匹配术语";
-            return;
-        }
-        const lines = [];
-        lines.push("段位：" + (data.rankTier || "-") + "，已解锁 " + (data.totalUnlocked || 0) + " 条");
-        lines.push("");
-        data.cards.forEach((c, idx) => {
-            lines.push((idx + 1) + ". [" + (c.level || "-") + "] " + (c.term || "-") + "（" + (c.category || "-") + "）");
-            lines.push("定义：" + (c.definition || "-"));
-            lines.push("场景：" + (c.usageScenario || "-"));
-            lines.push("例句：" + (c.example || "-"));
-            lines.push("");
-        });
-        el.advancedTermsBox.textContent = lines.join("\n").trim();
-    }
-
-    async function loadAdvancedTerms() {
-        try {
-            updateStatus("正在加载高阶术语…");
-            const data = await postJson(apiUrl("/werewolf/learning/advanced-terms"), {
-                rankTier: el.termRankTier ? el.termRankTier.value : "C",
-                searchKeyword: el.termKeyword ? el.termKeyword.value : ""
-            });
-            renderAdvancedTerms(data);
-            updateStatus("高阶术语已更新");
-        } catch (e) {
-            updateStatus("术语加载失败：" + e.message);
-        }
-    }
-
-    function renderGestures(data) {
-        if (!el.gestureBox) return;
-        if (!data || !Array.isArray(data.cards) || data.cards.length === 0) {
-            el.gestureBox.textContent = "暂无手势数据";
-            return;
-        }
-        const lines = [];
-        lines.push(data.deckName || "手势教学");
-        lines.push("");
-        data.cards.forEach((g, idx) => {
-            lines.push((idx + 1) + ". " + (g.name || "-") + "（" + (g.category || "-") + "）");
-            lines.push("动作：" + (g.actionGuide || "-"));
-            lines.push("含义：" + (g.meaning || "-"));
-            lines.push("场景：" + (g.useCase || "-"));
-            lines.push("注意：" + (g.caution || "-"));
-            lines.push("");
-        });
-        el.gestureBox.textContent = lines.join("\n").trim();
-    }
-
-    async function loadGestures() {
-        try {
-            updateStatus("正在加载手势教学…");
-            const data = await postJson(apiUrl("/werewolf/learning/gestures"), {});
-            renderGestures(data);
-            updateStatus("手势教学已更新");
-        } catch (e) {
-            updateStatus("手势教学失败：" + e.message);
-        }
-    }
-
-    function renderGrowthPlan(data) {
-        if (!el.growthPlanBox) return;
-        if (!data) {
-            el.growthPlanBox.textContent = "暂无成长计划";
-            return;
-        }
-        const lines = [];
-        lines.push("玩家：" + (data.playerLabel || "-"));
-        lines.push("阶段评估：" + (data.stageAssessment || "-"));
-        lines.push("");
-        lines.push("【核心短板】");
-        (data.weaknessTags || []).forEach(x => lines.push(" · " + x));
-        lines.push("");
-        lines.push("【每日训练任务】");
-        (data.dailyMissions || []).forEach(x => lines.push(" · " + x));
-        lines.push("");
-        lines.push("【应急话术】");
-        (data.emergencySpeechTemplates || []).forEach(x => lines.push(" · " + x));
-        lines.push("");
-        lines.push("【能力平移（社交/职场）】");
-        (data.transferableSkills || []).forEach(x => lines.push(" · " + x));
-        el.growthPlanBox.textContent = lines.join("\n");
-    }
-
-    async function runGrowthPlan() {
-        try {
-            updateStatus("正在生成AI助教成长计划…");
-            const data = await postJson(apiUrl("/werewolf/learning/growth-plan"), buildBaseRequest());
-            renderGrowthPlan(data);
-            updateStatus("成长计划已生成");
-        } catch (e) {
-            updateStatus("成长计划生成失败：" + e.message);
-        }
-    }
-
-    async function runRealtimeRoleAnalysis() {
-        try {
-            const req = buildBaseRequest();
-            try {
-                const roleData = await postJson(apiUrl("/werewolf/role-probabilities"), req);
-                renderRoleAnalysis(roleData);
-            } catch (err) {
-                if (!is404(err)) {
-                    throw err;
-                }
-                // 兼容旧后端：若拆分接口不存在，回退综合接口
-                const allInOne = await postJson(apiUrl("/werewolf/analyze"), req);
-                renderRoleAnalysis(allInOne);
-            }
-            await runMonteCarlo();
-        } catch (e) {
-            updateStatus("实时分析失败：" + e.message);
-        }
-    }
-
-    async function runRoundFullAnalysis() {
-        try {
-            const req = buildBaseRequest();
-            try {
-                const [speechAdvice, roleProb, winRates] = await Promise.all([
-                    postJson(apiUrl("/werewolf/speech-advice"), req),
-                    postJson(apiUrl("/werewolf/role-probabilities"), req),
-                    postJson(apiUrl("/werewolf/win-rates"), req)
-                ]);
-                renderSpeechAdvice(speechAdvice);
-                renderRoleAnalysis(roleProb);
-                renderWinRates(winRates);
-            } catch (err) {
-                if (!is404(err)) {
-                    throw err;
-                }
-                // 兼容旧后端：统一使用综合分析接口
-                const allInOne = await postJson(apiUrl("/werewolf/analyze"), req);
-                renderSpeechAdvice({
-                    mode: allInOne.mode,
-                    phase: allInOne.phase,
-                    speechStrategy: allInOne.speechStrategy,
-                    reasoningSummary: allInOne.reasoningSummary
-                });
-                renderRoleAnalysis(allInOne);
-                renderWinRates({
-                    mode: allInOne.mode,
-                    phase: allInOne.phase,
-                    roleWinRates: allInOne.roleWinRates,
-                    reasoningSummary: allInOne.reasoningSummary
-                });
-            }
-            await runMonteCarlo();
-            try {
-                await saveHistorySnapshot("ANALYSIS", "第" + state.currentRound + "轮完整分析后快照");
-            } catch (ignore) {
-                /* 历史落库失败不阻断主流程 */
-            }
-            updateStatus("第" + state.currentRound + "轮分析完成。可进入下一轮。");
-        } catch (e) {
-            updateStatus("本轮分析失败：" + e.message);
-        }
-    }
-
-    async function startGame() {
-        stopActiveRecognition();
-        endContinuousSession("模式已重置：请在本局重新开启连续录音");
-        state.totalPlayers = Number(el.totalPlayers.value);
-        state.currentRound = 1;
-        state.roundSpeeches = new Map();
-        state.allSpeeches = [];
-        state.votes = [];
-        state.skills = [];
-        state.lastWords = [];
-        state.dbGameId = null;
-        initPlayerStates(state.totalPlayers);
-        state.gameStarted = true;
-        switchTab("board");
-        renderSituationLists();
-        el.speechAdviceBox.textContent = "暂无";
-        el.roleTableBox.textContent = "暂无";
-        el.winRateTableBox.textContent = "暂无";
-        if (el.mcHeatmapBox) el.mcHeatmapBox.textContent = "暂无数据，分析后自动刷新或点击「刷新热力图」";
-        if (el.psychologyBox) el.psychologyBox.textContent = "点击按钮生成观察清单、追问与应对策略";
-        if (el.postReviewBox) el.postReviewBox.textContent = "暂无";
-        if (el.advancedTermsBox) el.advancedTermsBox.textContent = "暂无";
-        if (el.gestureBox) el.gestureBox.textContent = "暂无";
-        if (el.growthPlanBox) el.growthPlanBox.textContent = "暂无";
-        el.speechTimeline.innerHTML = "";
-        renderPlayerInputs();
-        updateProgress();
-        updateStatus("正在创建数据库对局记录…");
-        try {
-            await createHistoryGame();
-            updateStatus("对局已开始（已写入 MySQL），请按顺序输入每位玩家发言。");
-        } catch (e) {
-            updateStatus("对局已开始，但数据库写入失败（请检查 MySQL）：" + e.message);
-        }
-    }
-
-    function nextRound() {
-        stopActiveRecognition();
-        endContinuousSession("已进入新一轮：如需连录请重新开始");
-        state.currentRound += 1;
-        state.roundSpeeches = new Map();
-        renderPlayerInputs();
-        updateProgress();
-        updateStatus("已进入第" + state.currentRound + "轮，请继续录入发言。");
-    }
-
-    function switchTab(tabName) {
-        const tabMap = {
-            board: "panel-board",
-            atlas: "panel-atlas",
-            strategy: "panel-strategy",
-            profile: "panel-profile"
-        };
-        Object.values(tabMap).forEach(id => {
-            const node = document.getElementById(id);
-            if (node) {
-                node.classList.remove("active");
-            }
-        });
-        const target = document.getElementById(tabMap[tabName] || "panel-board");
-        if (target) {
-            target.classList.add("active");
-        }
-        document.querySelectorAll(".tab-btn").forEach(btn => {
-            btn.classList.toggle("active", btn.getAttribute("data-tab") === tabName);
-        });
-    }
-
-    el.totalPlayers.addEventListener("change", () => applyDefaultRoleComposition(Number(el.totalPlayers.value)));
-    if (el.boardTemplate) {
-        el.boardTemplate.addEventListener("change", applyBoardTemplate);
-    }
-    el.startGameBtn.addEventListener("click", () => { startGame(); });
-    el.nextRoundBtn.addEventListener("click", nextRound);
-    el.analyzeRoundBtn.addEventListener("click", runRoundFullAnalysis);
-    if (el.addVoteBtn) {
-        el.addVoteBtn.addEventListener("click", () => {
-            const tgtRaw = el.voteTarget.value.trim();
-            state.votes.push({
-                round: Number(el.voteRound.value || 1),
-                voteType: el.voteType.value,
-                voterId: Number(el.voteVoter.value || 0),
-                targetId: tgtRaw === "" ? null : Number(tgtRaw)
-            });
-            renderSituationLists();
-        });
-    }
-    if (el.addSkillBtn) {
-        el.addSkillBtn.addEventListener("click", () => {
-            const ids = (el.skillTargets.value || "").split(/[,，\s]+/).map(x => Number(x.trim())).filter(x => Number.isInteger(x) && x > 0);
-            state.skills.push({
-                nightOrDay: Number(el.skillNight.value || 1),
-                phaseTag: el.skillPhase.value || "阶段",
-                actionType: el.skillAction.value || "动作",
-                actorPlayerId: el.skillActor.value ? Number(el.skillActor.value) : null,
-                targetPlayerIds: ids,
-                details: el.skillDetails.value || ""
-            });
-            renderSituationLists();
-        });
-    }
-    if (el.addLwBtn) {
-        el.addLwBtn.addEventListener("click", () => {
-            const c = (el.lwContent.value || "").trim();
-            if (!c) {
-                alert("请填写遗言内容");
-                return;
-            }
-            state.lastWords.push({
-                playerId: Number(el.lwPlayer.value || 1),
-                roundOrDay: Number(el.lwRound.value || 1),
-                content: c
-            });
-            el.lwContent.value = "";
-            renderSituationLists();
-        });
-    }
-    if (el.refreshMcBtn) el.refreshMcBtn.addEventListener("click", runMonteCarlo);
-    if (el.psychologyBtn) el.psychologyBtn.addEventListener("click", runPsychologyCoach);
-    if (el.postReviewBtn) el.postReviewBtn.addEventListener("click", runPostGameReview);
-    if (el.advancedTermsBtn) el.advancedTermsBtn.addEventListener("click", loadAdvancedTerms);
-    if (el.gestureBtn) el.gestureBtn.addEventListener("click", loadGestures);
-    if (el.growthPlanBtn) el.growthPlanBtn.addEventListener("click", runGrowthPlan);
-    if (el.jumpToBoardBtn) {
-        el.jumpToBoardBtn.addEventListener("click", () => switchTab("board"));
-    }
-    if (el.toggleContinuousBtn) {
-        el.toggleContinuousBtn.addEventListener("click", () => {
-            continuousModeEnabled = !continuousModeEnabled;
-            if (!continuousModeEnabled) {
-                stopActiveRecognition();
-                endContinuousSession("模式关闭：仅单个玩家录音");
-            } else {
-                refreshContinuousUi();
-            }
-        });
-    }
-    if (el.startContinuousBtn) {
-        el.startContinuousBtn.addEventListener("click", () => {
-            if (!continuousModeEnabled) {
-                alert("请先开启连续录音模式");
-                return;
-            }
-            if (continuousActive) {
-                stopActiveRecognition();
-                endContinuousSession("已手动结束连续录入");
-                return;
-            }
-            startContinuousSession();
-        });
-    }
-    document.querySelectorAll(".tab-btn").forEach(btn => {
-        btn.addEventListener("click", () => switchTab(btn.getAttribute("data-tab") || "board"));
+  const API_BASE = "http://localhost:8012";
+  const SILENCE_MS = 3500;
+
+  const dateEl = document.getElementById("todayText");
+  const homePage = document.getElementById("homePage");
+  const encyclopediaPage = document.getElementById("encyclopediaPage");
+  const reviewPage = document.getElementById("reviewPage");
+  const profilePage = document.getElementById("profilePage");
+  const goReviewBtn = document.getElementById("goReviewBtn");
+
+  const recToggleBtn = document.getElementById("recToggleBtn");
+  const reviewStatus = document.getElementById("reviewStatus");
+  const listenText = document.getElementById("listenText");
+  const liveQuote = document.getElementById("liveQuote");
+  const transcriptEl = document.getElementById("transcript");
+  const transcriptCounter = document.getElementById("transcriptCounter");
+  const aiSpeech = document.getElementById("aiSpeech");
+  const aiWinRate = document.getElementById("aiWinRate");
+  const nodeTime1 = document.getElementById("nodeTime1");
+  const nodeTime2 = document.getElementById("nodeTime2");
+
+  const detailModal = document.getElementById("detailModal");
+  const modalTitle = document.getElementById("modalTitle");
+  const modalText = document.getElementById("modalText");
+  const closeModalBtn = document.getElementById("closeModalBtn");
+  const paywallText = document.getElementById("paywallText");
+  const unlockBtn = document.getElementById("unlockBtn");
+
+  const SpeechRecognitionCtor = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let recognition = null;
+  let isRecording = false;
+  let silenceTimer = null;
+  let accumulatedText = "";
+
+  // 当前对局仅免费分析一次
+  let freeAnalysisUsed = false;
+  let deepAnalysisUnlocked = false;
+  let manualPause = false;
+
+  function nowHM() {
+    const d = new Date();
+    const hh = String(d.getHours()).padStart(2, "0");
+    const mm = String(d.getMinutes()).padStart(2, "0");
+    return `${hh}:${mm}`;
+  }
+
+  function updateDate() {
+    const now = new Date();
+    const week = ["星期日", "星期一", "星期二", "星期三", "星期四", "星期五", "星期六"];
+    dateEl.textContent = `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日 · ${week[now.getDay()]}`;
+  }
+
+  function setPage(mode) {
+    homePage.classList.toggle("hidden", mode !== "home");
+    encyclopediaPage.classList.toggle("hidden", mode !== "ency");
+    reviewPage.classList.toggle("hidden", mode !== "review");
+    profilePage.classList.toggle("hidden", mode !== "profile");
+
+    document.querySelectorAll(".nav-item").forEach(el => {
+      el.classList.toggle("active", el.getAttribute("data-nav") === mode);
     });
-    document.querySelectorAll(".stt-btn").forEach(btn => bindSttButton(btn));
+  }
 
-    el.debugBaseUrl.textContent = "固定后端地址: " + apiBasePrefix;
-    applyDefaultRoleComposition(Number(el.totalPlayers.value));
-    renderSituationLists();
-    refreshContinuousUi();
-    refreshProfileMetrics();
+  function setRecUi(on) {
+    isRecording = on;
+    recToggleBtn.classList.toggle("on", on);
+    if (on) {
+      reviewStatus.textContent = "状态：录音识别中（静默后自动分析并继续监听）";
+      listenText.textContent = "正在监听发言...";
+    } else {
+      reviewStatus.textContent = manualPause ? "状态：手动暂停" : "状态：已暂停";
+      listenText.textContent = "录音已暂停";
+    }
+  }
+
+  function clearSilenceTimer() {
+    if (silenceTimer) {
+      clearTimeout(silenceTimer);
+      silenceTimer = null;
+    }
+  }
+
+  function armSilenceTimer() {
+    clearSilenceTimer();
+    silenceTimer = setTimeout(() => {
+      if (isRecording && recognition) {
+        reviewStatus.textContent = "状态：检测到静默，正在自动暂停并分析...";
+        recognition.stop();
+      }
+    }, SILENCE_MS);
+  }
+
+  function appendTranscript(text) {
+    if (!text) return;
+    accumulatedText = accumulatedText ? `${accumulatedText}\n${text}` : text;
+    transcriptEl.textContent = accumulatedText;
+    transcriptCounter.textContent = `${accumulatedText.length} 字`;
+    liveQuote.textContent = `“${text}”`;
+  }
+
+  async function postJson(path, body) {
+    const resp = await fetch(API_BASE + path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    });
+    if (!resp.ok) {
+      const t = await resp.text();
+      throw new Error(`HTTP ${resp.status}: ${t}`);
+    }
+    return resp.json();
+  }
+
+  function buildAiRequest() {
+    return {
+      totalPlayers: 9,
+      gameMode: "9人标准局",
+      phase: "白天发言",
+      myPlayerId: 1,
+      myRoleHint: "未知",
+      winningObjective: "提高本阵营胜率并避免被抗推",
+      roleComposition: { "狼人": 3, "平民": 3, "预言家": 1, "女巫": 1, "猎人": 1 },
+      speeches: [{ playerId: 1, speech: accumulatedText }],
+      extraContext: "来自实时语音转写（静默自动提交）",
+      deadPlayers: [],
+      revealedIdentities: {},
+      knownWerewolfPlayers: [],
+      boardTemplateId: "std9",
+      voteRecords: [],
+      skillEvents: [],
+      lastWordRecords: [],
+      observedSignals: [],
+      gameOutcomeNarrative: ""
+    };
+  }
+
+  function renderSpeechAdvice(data) {
+    if (!data || !data.speechStrategy) {
+      aiSpeech.textContent = "暂无";
+      return;
+    }
+    const s = data.speechStrategy;
+    const lines = [];
+    lines.push(`目标：${s.objective || "-"}`);
+    lines.push(`建议：${s.suggestedSpeech || "-"}`);
+    if (Array.isArray(s.tacticalPoints) && s.tacticalPoints.length) {
+      lines.push("战术点：" + s.tacticalPoints.join("；"));
+    }
+    aiSpeech.textContent = lines.join("\n");
+    nodeTime1.textContent = nowHM();
+  }
+
+  function renderWinRate(data) {
+    if (!data || !Array.isArray(data.roleWinRates) || data.roleWinRates.length === 0) {
+      aiWinRate.textContent = "暂无";
+      return;
+    }
+    aiWinRate.textContent = data.roleWinRates
+      .map(x => `${x.role || "-"}：${Math.round((x.winRate || 0) * 100)}%`)
+      .join("\n");
+    nodeTime2.textContent = nowHM();
+  }
+
+  async function runAiAnalysisAuto() {
+    if (!accumulatedText.trim()) {
+      reviewStatus.textContent = "状态：暂无可分析文本";
+      return;
+    }
+
+    if (freeAnalysisUsed && !deepAnalysisUnlocked) {
+      reviewStatus.textContent = "状态：免费分析次数已用完，解锁深度复盘查看后续分析";
+      return;
+    }
+
+    reviewStatus.textContent = "状态：AI分析中...";
+    try {
+      const req = buildAiRequest();
+      const [speech, win] = await Promise.all([
+        postJson("/werewolf/speech-advice", req),
+        postJson("/werewolf/win-rates", req)
+      ]);
+      renderSpeechAdvice(speech);
+      renderWinRate(win);
+      if (!deepAnalysisUnlocked) {
+        freeAnalysisUsed = true;
+        reviewStatus.textContent = "状态：已完成本局免费分析 1 次，后续需解锁深度复盘";
+      } else {
+        reviewStatus.textContent = "状态：深度分析已解锁，分析完成";
+      }
+    } catch (e) {
+      reviewStatus.textContent = "状态：分析失败 - " + e.message;
+    }
+  }
+
+  function stopRecording(manual = false) {
+    manualPause = manual;
+    if (recognition) {
+      try { recognition.stop(); } catch (ignore) {}
+    }
+    clearSilenceTimer();
+    setRecUi(false);
+    if (manual) {
+      runAiAnalysisAuto();
+    }
+  }
+
+  function startRecording() {
+    if (!SpeechRecognitionCtor) {
+      reviewStatus.textContent = "状态：浏览器不支持语音识别，请使用 Chrome/Edge";
+      return;
+    }
+    if (isRecording) return;
+
+    recognition = new SpeechRecognitionCtor();
+    recognition.lang = "zh-CN";
+    recognition.continuous = true;
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = () => {
+      manualPause = false;
+      setRecUi(true);
+      armSilenceTimer();
+    };
+
+    recognition.onresult = (event) => {
+      let chunk = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const phrase = event.results[i] && event.results[i][0] ? event.results[i][0].transcript.trim() : "";
+        if (phrase) {
+          chunk += (chunk ? " " : "") + phrase;
+        }
+      }
+      if (chunk) {
+        appendTranscript(chunk);
+        armSilenceTimer();
+      }
+    };
+
+    recognition.onerror = (event) => {
+      reviewStatus.textContent = "状态：识别失败 - " + (event.error || "未知错误");
+    };
+
+    recognition.onend = async () => {
+      const wasRecording = isRecording;
+      clearSilenceTimer();
+      setRecUi(false);
+      recognition = null;
+      if (wasRecording) {
+        await runAiAnalysisAuto();
+        if (!manualPause && !reviewPage.classList.contains("hidden")) {
+          setTimeout(() => {
+            if (!isRecording && !manualPause && !reviewPage.classList.contains("hidden")) {
+              startRecording();
+            }
+          }, 350);
+        }
+      }
+    };
+
+    recognition.start();
+  }
+
+  function resetReviewForNewMatch() {
+    freeAnalysisUsed = false;
+    deepAnalysisUnlocked = false;
+    accumulatedText = "";
+    transcriptEl.textContent = "暂无";
+    transcriptCounter.textContent = "0 字";
+    aiSpeech.textContent = "暂无";
+    aiWinRate.textContent = "暂无";
+    nodeTime1.textContent = "--:--";
+    nodeTime2.textContent = "--:--";
+    liveQuote.textContent = "“等待语音输入...”";
+    reviewStatus.textContent = "状态：待机";
+    paywallText.innerHTML = "当前对局仅免费输出一次 AI 分析。<br/>如需全场深度心路复盘，请解锁深度报告。";
+    unlockBtn.textContent = "支付 1.0 元查看";
+    unlockBtn.classList.remove("unlocked");
+  }
+
+  function bindReadMore() {
+    document.querySelectorAll(".read-more").forEach(btn => {
+      btn.addEventListener("click", () => {
+        modalTitle.textContent = btn.getAttribute("data-title") || "详情";
+        modalText.textContent = btn.getAttribute("data-detail") || "暂无详细内容";
+        detailModal.classList.add("show");
+      });
+    });
+  }
+
+  goReviewBtn.addEventListener("click", () => {
+    resetReviewForNewMatch();
+    setPage("review");
+    startRecording();
+  });
+
+  recToggleBtn.addEventListener("click", () => {
+    if (isRecording) {
+      stopRecording(true);
+    } else {
+      startRecording();
+    }
+  });
+
+  document.querySelectorAll("[data-back-home]").forEach(btn => {
+    btn.addEventListener("click", () => {
+      stopRecording(true);
+      setPage("home");
+    });
+  });
+
+  document.querySelectorAll(".nav-item").forEach(item => {
+    item.addEventListener("click", () => {
+      const nav = item.getAttribute("data-nav");
+      if (nav === "home") {
+        stopRecording(true);
+        setPage("home");
+      } else if (nav === "ency") {
+        stopRecording(true);
+        setPage("ency");
+      } else if (nav === "review") {
+        setPage("review");
+      } else if (nav === "profile") {
+        stopRecording(true);
+        setPage("profile");
+      }
+    });
+  });
+
+  document.querySelectorAll("#encyTabWrap .tab-chip").forEach(chip => {
+    chip.addEventListener("click", () => {
+      document.querySelectorAll("#encyTabWrap .tab-chip").forEach(x => x.classList.remove("active"));
+      chip.classList.add("active");
+    });
+  });
+
+  closeModalBtn.addEventListener("click", () => detailModal.classList.remove("show"));
+  detailModal.addEventListener("click", (e) => {
+    if (e.target === detailModal) detailModal.classList.remove("show");
+  });
+
+  unlockBtn.addEventListener("click", () => {
+    deepAnalysisUnlocked = true;
+    paywallText.innerHTML = "深度复盘已解锁：本局可继续自动分析后续发言。";
+    unlockBtn.textContent = "已解锁深度分析";
+    unlockBtn.classList.add("unlocked");
+    reviewStatus.textContent = "状态：深度分析已解锁";
+  });
+
+  updateDate();
+  bindReadMore();
+  resetReviewForNewMatch();
+  setPage("home");
 </script>
 </body>
 </html>
