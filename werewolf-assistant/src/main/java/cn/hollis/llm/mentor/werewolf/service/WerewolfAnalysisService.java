@@ -56,7 +56,7 @@ public class WerewolfAnalysisService implements InitializingBean {
 
     public SpeechAdviceResponse analyzeSpeechAdvice(WerewolfAnalysisRequest request) {
         validateRequest(request);
-        String prompt = buildSpeechAdvicePrompt(request);
+        String prompt = buildSpeechAdvicePrompt(request) + strictOutputGuard("SpeechAdviceResponse");
         try {
             SpeechAdviceResponse raw = chatClient.prompt(prompt).call().entity(SpeechAdviceResponse.class);
             return normalizeSpeechAdvice(raw, request);
@@ -67,10 +67,11 @@ public class WerewolfAnalysisService implements InitializingBean {
 
     public RoleAnalysisResponse analyzePlayerRoles(WerewolfAnalysisRequest request) {
         validateRequest(request);
-        String prompt = buildRoleAnalysisPrompt(request);
+        String prompt = buildRoleAnalysisPrompt(request) + strictOutputGuard("RoleAnalysisResponse");
         try {
             RoleAnalysisResponse response = chatClient.prompt(prompt).call().entity(RoleAnalysisResponse.class);
-            return enforceMyIdentityForRoleAnalysis(request, response);
+            RoleAnalysisResponse normalized = normalizeRoleAnalysis(response, request);
+            return enforceMyIdentityForRoleAnalysis(request, normalized);
         } catch (Exception ex) {
             return buildFallbackRoleAnalysisResponse(request);
         }
@@ -78,9 +79,10 @@ public class WerewolfAnalysisService implements InitializingBean {
 
     public WinRateAnalysisResponse analyzeWinRates(WerewolfAnalysisRequest request) {
         validateRequest(request);
-        String prompt = buildWinRatePrompt(request);
+        String prompt = buildWinRatePrompt(request) + strictOutputGuard("WinRateAnalysisResponse");
         try {
-            return chatClient.prompt(prompt).call().entity(WinRateAnalysisResponse.class);
+            WinRateAnalysisResponse raw = chatClient.prompt(prompt).call().entity(WinRateAnalysisResponse.class);
+            return normalizeWinRateResponse(raw, request);
         } catch (Exception ex) {
             return buildFallbackWinRateAnalysisResponse(request);
         }
@@ -438,6 +440,102 @@ public class WerewolfAnalysisService implements InitializingBean {
                 raw.attackSpeechTemplates() == null ? List.of() : raw.attackSpeechTemplates(),
                 raw.tableWaterTemplates() == null ? List.of() : raw.tableWaterTemplates()
         );
+    }
+
+    private RoleAnalysisResponse normalizeRoleAnalysis(RoleAnalysisResponse raw, WerewolfAnalysisRequest request) {
+        if (raw == null) {
+            return buildFallbackRoleAnalysisResponse(request);
+        }
+        List<PlayerRoleAssessment> normalized = new ArrayList<>();
+        if (raw.playerAssessments() != null) {
+            for (PlayerRoleAssessment item : raw.playerAssessments()) {
+                if (item == null || item.playerId() == null) {
+                    continue;
+                }
+                List<RoleProbability> probs = normalizeRoleProbabilities(item.roleProbabilities());
+                String likelyRole = StringUtils.hasText(item.likelyRole()) ? item.likelyRole() : (probs.isEmpty() ? "未知" : probs.get(0).role());
+                double confidence = clamp01(item.confidence() == null ? 0.5 : item.confidence());
+                List<String> evidence = item.keyEvidence() == null ? List.of() : item.keyEvidence().stream()
+                        .filter(StringUtils::hasText)
+                        .map(String::trim)
+                        .limit(4)
+                        .toList();
+                normalized.add(new PlayerRoleAssessment(item.playerId(), likelyRole, confidence, probs, evidence));
+            }
+        }
+        return new RoleAnalysisResponse(
+                StringUtils.hasText(raw.mode()) ? raw.mode() : resolveMode(request),
+                StringUtils.hasText(raw.phase()) ? raw.phase() : resolvePhase(request),
+                normalized,
+                raw.reasoningSummary()
+        );
+    }
+
+    private List<RoleProbability> normalizeRoleProbabilities(List<RoleProbability> raw) {
+        if (raw == null || raw.isEmpty()) {
+            return List.of(new RoleProbability("未知", 1.0));
+        }
+        List<RoleProbability> cleaned = raw.stream()
+                .filter(item -> item != null && StringUtils.hasText(item.role()) && item.probability() != null)
+                .map(item -> new RoleProbability(item.role().trim(), Math.max(0d, item.probability())))
+                .limit(6)
+                .toList();
+        if (cleaned.isEmpty()) {
+            return List.of(new RoleProbability("未知", 1.0));
+        }
+        double sum = cleaned.stream().mapToDouble(RoleProbability::probability).sum();
+        if (sum <= 0.0001) {
+            double avg = 1d / cleaned.size();
+            return cleaned.stream().map(item -> new RoleProbability(item.role(), avg)).toList();
+        }
+        return cleaned.stream()
+                .map(item -> new RoleProbability(item.role(), clamp01(item.probability() / sum)))
+                .toList();
+    }
+
+    private WinRateAnalysisResponse normalizeWinRateResponse(WinRateAnalysisResponse raw, WerewolfAnalysisRequest request) {
+        if (raw == null) {
+            return buildFallbackWinRateAnalysisResponse(request);
+        }
+        List<RoleWinRate> winRates = new ArrayList<>();
+        if (raw.roleWinRates() != null) {
+            for (RoleWinRate item : raw.roleWinRates()) {
+                if (item == null || !StringUtils.hasText(item.role()) || item.winRate() == null) {
+                    continue;
+                }
+                winRates.add(new RoleWinRate(item.role().trim(), clamp01(item.winRate())));
+            }
+        }
+        if (winRates.isEmpty()) {
+            winRates = List.of(
+                    new RoleWinRate("好人阵营", 0.5),
+                    new RoleWinRate("狼人阵营", 0.5)
+            );
+        }
+        return new WinRateAnalysisResponse(
+                StringUtils.hasText(raw.mode()) ? raw.mode() : resolveMode(request),
+                StringUtils.hasText(raw.phase()) ? raw.phase() : resolvePhase(request),
+                winRates,
+                raw.reasoningSummary()
+        );
+    }
+
+    private double clamp01(double value) {
+        if (Double.isNaN(value) || Double.isInfinite(value)) {
+            return 0.5;
+        }
+        return Math.max(0d, Math.min(1d, value));
+    }
+
+    private String strictOutputGuard(String rootType) {
+        return """
+                
+                【强制输出规范】
+                1) 只输出单个 JSON 对象，根对象类型必须是 %s。
+                2) 任何概率字段必须是 0~1 的数字，不能是百分号字符串。
+                3) 不要输出 Markdown、解释文字、代码块标记。
+                4) 列表字段为空时输出 []，不要输出 null。
+                """.formatted(rootType);
     }
 
     private String buildPsychologyCoachPrompt(WerewolfAnalysisRequest request) {

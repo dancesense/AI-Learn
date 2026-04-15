@@ -45,3 +45,43 @@ CREATE TABLE IF NOT EXISTS werewolf_snapshot (
     CONSTRAINT fk_werewolf_snapshot_game
         FOREIGN KEY (game_id) REFERENCES werewolf_game (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='对局局势快照';
+
+-- ----------------------------
+-- live session table
+-- ----------------------------
+CREATE TABLE IF NOT EXISTS werewolf_live_session (
+    id                  BIGINT          NOT NULL AUTO_INCREMENT,
+    session_uuid        VARCHAR(64)     NOT NULL,
+    total_players       INT             NULL,
+    game_mode           VARCHAR(128)    NULL,
+    my_player_id        INT             NULL,
+    my_role_hint        VARCHAR(64)     NULL,
+    current_speaker_id  INT             NULL,
+    status              VARCHAR(32)     NOT NULL DEFAULT 'ACTIVE',
+    started_at          DATETIME(6)     NOT NULL,
+    updated_at          DATETIME(6)     NOT NULL,
+    PRIMARY KEY (id),
+    UNIQUE KEY uk_live_session_uuid (session_uuid),
+    KEY idx_live_session_created (started_at),
+    KEY idx_live_session_status (status)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ----------------------------
+-- live event table
+-- ----------------------------
+CREATE TABLE IF NOT EXISTS werewolf_live_event (
+    id                  BIGINT          NOT NULL AUTO_INCREMENT,
+    session_id          BIGINT          NOT NULL,
+    event_type          VARCHAR(32)     NOT NULL,
+    speaker_player_id   INT             NULL,
+    speaker_label       VARCHAR(64)     NULL,
+    content             LONGTEXT        NOT NULL,
+    ai_payload          LONGTEXT        NULL,
+    highlight           TINYINT(1)      NOT NULL DEFAULT 0,
+    created_at          DATETIME(6)     NOT NULL,
+    PRIMARY KEY (id),
+    KEY idx_live_event_session_time (session_id, created_at),
+    KEY idx_live_event_type (event_type),
+    CONSTRAINT fk_live_event_session
+        FOREIGN KEY (session_id) REFERENCES werewolf_live_session (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

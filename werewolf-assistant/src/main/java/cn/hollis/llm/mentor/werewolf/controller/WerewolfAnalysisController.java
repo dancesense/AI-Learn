@@ -15,6 +15,8 @@ import cn.hollis.llm.mentor.werewolf.model.WinRateAnalysisResponse;
 import cn.hollis.llm.mentor.werewolf.service.MonteCarloAssignmentService;
 import cn.hollis.llm.mentor.werewolf.service.WerewolfAnalysisService;
 import cn.hollis.llm.mentor.werewolf.service.WerewolfLearningService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -22,10 +24,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @RestController
 @CrossOrigin(origins = "*")
 @RequestMapping("/werewolf")
 public class WerewolfAnalysisController {
+
+    private static final Logger log = LoggerFactory.getLogger(WerewolfAnalysisController.class);
 
     private final WerewolfAnalysisService werewolfAnalysisService;
     private final MonteCarloAssignmentService monteCarloAssignmentService;
@@ -46,7 +52,18 @@ public class WerewolfAnalysisController {
 
     @PostMapping("/speech-advice")
     public SpeechAdviceResponse speechAdvice(@RequestBody WerewolfAnalysisRequest request) {
-        return werewolfAnalysisService.analyzeSpeechAdvice(request);
+        long startedAt = System.currentTimeMillis();
+        String mergedSpeech = mergeSpeeches(request);
+        log.info("[speech-advice] request received: phase={}, speechesCount={}, textLen={}, preview={}",
+                request == null ? null : request.phase(),
+                request == null || request.speeches() == null ? 0 : request.speeches().size(),
+                mergedSpeech.length(),
+                preview(mergedSpeech));
+        SpeechAdviceResponse response = werewolfAnalysisService.analyzeSpeechAdvice(request);
+        log.info("[speech-advice] response finished in {} ms, hasStrategy={}",
+                System.currentTimeMillis() - startedAt,
+                response != null && response.speechStrategy() != null);
+        return response;
     }
 
     @PostMapping("/role-probabilities")
@@ -56,7 +73,44 @@ public class WerewolfAnalysisController {
 
     @PostMapping("/win-rates")
     public WinRateAnalysisResponse winRates(@RequestBody WerewolfAnalysisRequest request) {
-        return werewolfAnalysisService.analyzeWinRates(request);
+        long startedAt = System.currentTimeMillis();
+        String mergedSpeech = mergeSpeeches(request);
+        log.info("[win-rates] request received: phase={}, speechesCount={}, textLen={}, preview={}",
+                request == null ? null : request.phase(),
+                request == null || request.speeches() == null ? 0 : request.speeches().size(),
+                mergedSpeech.length(),
+                preview(mergedSpeech));
+        WinRateAnalysisResponse response = werewolfAnalysisService.analyzeWinRates(request);
+        log.info("[win-rates] response finished in {} ms, roleCount={}",
+                System.currentTimeMillis() - startedAt,
+                response == null || response.roleWinRates() == null ? 0 : response.roleWinRates().size());
+        return response;
+    }
+
+    private static String mergeSpeeches(WerewolfAnalysisRequest request) {
+        if (request == null || request.speeches() == null || request.speeches().isEmpty()) {
+            return "";
+        }
+        StringBuilder sb = new StringBuilder();
+        List<cn.hollis.llm.mentor.werewolf.model.PlayerSpeech> speeches = request.speeches();
+        for (cn.hollis.llm.mentor.werewolf.model.PlayerSpeech s : speeches) {
+            if (s == null || s.speech() == null || s.speech().isBlank()) {
+                continue;
+            }
+            if (sb.length() > 0) {
+                sb.append('\n');
+            }
+            sb.append(s.speech().trim());
+        }
+        return sb.toString();
+    }
+
+    private static String preview(String text) {
+        if (text == null || text.isBlank()) {
+            return "<empty>";
+        }
+        String normalized = text.replace('\n', ' ').trim();
+        return normalized.length() <= 80 ? normalized : normalized.substring(0, 80) + "...";
     }
 
     @PostMapping("/monte-carlo")

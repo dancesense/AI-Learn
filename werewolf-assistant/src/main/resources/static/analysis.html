@@ -1,0 +1,63 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>实时分析 - 狼人杀助手</title>
+  <link rel="stylesheet" href="/assets/styles.css" />
+</head>
+<body>
+<div class="phone">
+  <main class="page">
+    <header class="headbar">
+      <div class="status-chip">
+        <span class="status-dot"></span>
+        <span id="statusText">实时分析中</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:16px;">
+        <span class="timer" id="timerText">00:00:00</span>
+        <a class="link-danger" id="closeBtn" href="/index.html">结束复盘</a>
+      </div>
+    </header>
+
+    <section class="board" id="messageBoard"></section>
+
+    <section class="panel">
+      <div class="panel-title">狼人概率预测</div>
+      <div id="probabilityChart" class="prob-chart"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">投票指导</div>
+      <div class="panel-main" id="voteAdviceText">等待分析...</div>
+      <ul class="plain-list" id="votePointsList"></ul>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">狼人话术（可直接复述）</div>
+      <div class="panel-main" id="suggestedSpeechText">等待分析...</div>
+      <ul class="plain-list" id="wolfTalkList"></ul>
+    </section>
+
+    <section class="toolbar">
+      <button id="toggleBtn">暂停监听</button>
+      <button id="flushBtn">手动发送当前段</button>
+    </section>
+
+    <div class="hint" id="hintText">准备中：正在申请麦克风权限...</div>
+    <div class="hint wait" id="queueText"></div>
+  </main>
+
+  <button id="recBtn" class="mic-fab" title="录音状态">REC</button>
+
+  <nav class="footer-nav">
+    <div>首页</div>
+    <div class="active">分析</div>
+    <div>图鉴</div>
+    <div>我的</div>
+  </nav>
+</div>
+
+<script src="/assets/analysis.js"></script>
+</body>
+</html>

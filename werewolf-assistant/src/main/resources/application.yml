@@ -10,9 +10,9 @@ spring:
 
   datasource:
     driver-class-name: com.mysql.cj.jdbc.Driver
-    url: jdbc:mysql://60.204.238.5:3306/werewolf_assistant?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
+    url: jdbc:mysql://localhost:3306/werewolf_assistant?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
     username: root
-    password: KtkD6t5Q9G8JGbXdGSGcIGQ0u7JiQX@AppleCard
+    password: root
 
   jpa:
     database-platform: org.hibernate.dialect.MySQLDialect
@@ -29,9 +29,9 @@ spring:
         persistence:
           jdbc:
             driver: com.mysql.cj.jdbc.Driver
-            url: jdbc:mysql://60.204.238.5:3306/werewolf_assistant?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
+            url: jdbc:mysql://localhost:3306/werewolf_assistant?useUnicode=true&characterEncoding=utf8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai
             user: root
-            password: KtkD6t5Q9G8JGbXdGSGcIGQ0u7JiQX@AppleCard
+            password: root
 
 server:
   port: 8012

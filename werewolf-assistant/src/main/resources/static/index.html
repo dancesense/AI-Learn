@@ -1,0 +1,71 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>狼人杀助手</title>
+  <link rel="stylesheet" href="/assets/styles.css" />
+</head>
+<body>
+<div class="phone">
+  <main class="page">
+    <div class="top-row">
+      <h1 class="h1">数据看板</h1>
+      <div class="date" id="dateText"></div>
+    </div>
+
+    <section class="stats-grid">
+      <article class="card">
+        <div class="card-label">总局数 / 胜率</div>
+        <div class="card-value">412</div>
+      </article>
+      <article class="card">
+        <div class="card-label">AI辅助成功率</div>
+        <div class="card-value">92%</div>
+      </article>
+    </section>
+
+    <section class="live-card">
+      <div>
+        <div style="font-size: 34px; font-weight: 700;">2026 全球狼王争霸赛</div>
+        <div class="date" style="margin-top: 8px;">实时播报中 · 1.2w 人在看</div>
+      </div>
+    </section>
+
+    <h2 class="section-title">活跃组局</h2>
+    <section class="room-row">
+      <div style="display:flex; gap:10px; align-items:center;">
+        <div class="badge-round">12</div>
+        <div>
+          <div style="font-size:25px; font-weight:700;">12人标准守卫局</div>
+          <div class="date">缺3人 · 高频房 · 实时转写</div>
+        </div>
+      </div>
+      <button class="btn">加入</button>
+    </section>
+
+    <section class="room-row featured">
+      <div style="display:flex; gap:10px; align-items:center;">
+        <div class="badge-round">9</div>
+        <div>
+          <div style="font-size:25px; font-weight:700;">9人娱乐明牌局</div>
+          <div class="date">缺1人 · 新手友好 · 语音复盘</div>
+        </div>
+      </div>
+      <button class="btn small-btn">加入</button>
+    </section>
+  </main>
+
+  <button id="startBtn" class="mic-fab" title="开始录音">麦克风</button>
+
+  <nav class="footer-nav">
+    <div class="active">首页</div>
+    <div>分析</div>
+    <div>图鉴</div>
+    <div>我的</div>
+  </nav>
+</div>
+
+<script src="/assets/home.js"></script>
+</body>
+</html>
