@@ -37,7 +37,7 @@ import java.util.regex.Pattern;
 @Service
 public class WerewolfLiveAnalysisService {
 
-    private static final Pattern TURN_SPEAKER_PATTERN = Pattern.compile("(请|轮到)?\\s*(\\d+)\\s*号玩家?发言");
+    private static final Pattern TURN_SPEAKER_PATTERN = Pattern.compile("(轮到)?\\s*(\\d+)\\s*号(?:玩家)?发言");
 
     private final WerewolfLiveSessionRepository sessionRepository;
     private final WerewolfLiveEventRepository eventRepository;
@@ -75,6 +75,10 @@ public class WerewolfLiveAnalysisService {
     public LiveAnalyzeResponse consumeChunk(Long sessionId, LiveChunkRequest request) {
         WerewolfLiveSessionEntity session = sessionRepository.findById(sessionId)
                 .orElseThrow(() -> new NoSuchElementException("实时会话不存在: " + sessionId));
+
+        if (request != null && StringUtils.hasText(request.myRoleHint())) {
+            session.setMyRoleHint(request.myRoleHint().trim());
+        }
 
         String transcript = request.transcript() == null ? "" : request.transcript().trim();
         Integer detectedSpeakerId = detectSpeakerIdFromPrompt(transcript);
@@ -131,6 +135,9 @@ public class WerewolfLiveAnalysisService {
                 silenceAlert,
                 events,
                 bars,
+                roleAnalysisResponse == null || roleAnalysisResponse.playerAssessments() == null
+                        ? List.of()
+                        : roleAnalysisResponse.playerAssessments(),
                 suggestedSpeech,
                 voteAdvice,
                 votePoints,
@@ -160,7 +167,7 @@ public class WerewolfLiveAnalysisService {
     private String buildAiMessage(RoleAnalysisResponse roleResp,
                                   SpeechAdviceResponse speechResp,
                                   WinRateAnalysisResponse winResp) {
-        String focus = "暂无关键风险玩家";
+        String focus = "暂未识别出高风险玩家";
         if (roleResp != null && roleResp.playerAssessments() != null && !roleResp.playerAssessments().isEmpty()) {
             PlayerRoleAssessment top = roleResp.playerAssessments().stream()
                     .max(Comparator.comparingDouble(item -> werewolfProbability(item.roleProbabilities())))
@@ -171,10 +178,10 @@ public class WerewolfLiveAnalysisService {
         }
         String speech = speechResp != null && speechResp.speechStrategy() != null
                 ? speechResp.speechStrategy().suggestedSpeech()
-                : "建议继续围绕票型一致性与关键事实追问。";
+                : "建议继续围绕票型一致性和关键事实追问。";
         String win = (winResp != null && winResp.reasoningSummary() != null) ? winResp.reasoningSummary() : "";
-        return "检测到逻辑异动：" + focus + "。\n建议：" + emptyAsDefault(speech, "请继续收集发言证据。")
-                + (StringUtils.hasText(win) ? ("\n胜率视角：" + win) : "");
+        return "检测到局势变化: " + focus + "。\n建议: " + emptyAsDefault(speech, "请继续收集发言证据。")
+                + (StringUtils.hasText(win) ? ("\n胜率视角: " + win) : "");
     }
 
     private String emptyAsDefault(String value, String fallback) {
@@ -265,7 +272,7 @@ public class WerewolfLiveAnalysisService {
         if (!StringUtils.hasText(reason)) {
             reason = "其发言与站边逻辑冲突，优先作为归票位";
         }
-        return "建议归票 " + voteTarget + " 号（狼概率 " + Math.max(maxProb, 1) + "%）：" + reason;
+        return "建议归票 " + voteTarget + " 号（狼概率 " + Math.max(maxProb, 1) + "%）: " + reason;
     }
 
     private List<String> buildVotePoints(SpeechAdviceResponse speechResp) {
@@ -342,7 +349,7 @@ public class WerewolfLiveAnalysisService {
                 "提高本阵营胜率并避免被抗推",
                 defaultRoleComposition(session.getTotalPlayers()),
                 speeches,
-                "来自实时语音转写，会混入“轮到X号发言”等系统播报，请优先基于玩家发言进行判断。",
+                "来自实时语音转写，可能混入系统播报，请优先基于玩家真实发言判断。",
                 List.of(),
                 Map.of(),
                 List.of(),

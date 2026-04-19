@@ -3,17 +3,12 @@
   var PHASE = "白天发言";
   var silenceMillis = 1800;
   var voiceThreshold = 0.024;
+  var playerCountOptions = [6, 8, 10, 12];
 
   var SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
   var statusText = document.getElementById("statusText");
   var timerText = document.getElementById("timerText");
-  var messageBoard = document.getElementById("messageBoard");
-  var probabilityChart = document.getElementById("probabilityChart");
-  var voteAdviceText = document.getElementById("voteAdviceText");
-  var votePointsList = document.getElementById("votePointsList");
-  var suggestedSpeechText = document.getElementById("suggestedSpeechText");
-  var wolfTalkList = document.getElementById("wolfTalkList");
   var hintText = document.getElementById("hintText");
   var queueText = document.getElementById("queueText");
   var toggleBtn = document.getElementById("toggleBtn");
@@ -21,13 +16,28 @@
   var recBtn = document.getElementById("recBtn");
   var closeBtn = document.getElementById("closeBtn");
 
+  var countChips = document.getElementById("countChips");
+  var myRoleSelect = document.getElementById("myRoleSelect");
+  var playerGrid = document.getElementById("playerGrid");
+  var probabilityChart = document.getElementById("probabilityChart");
+  var roleMatrix = document.getElementById("roleMatrix");
+  var voteAdviceText = document.getElementById("voteAdviceText");
+  var votePointsList = document.getElementById("votePointsList");
+  var suggestedSpeechText = document.getElementById("suggestedSpeechText");
+  var wolfTalkList = document.getElementById("wolfTalkList");
+
+  var playerCount = 12;
+  var myRoleHint = "未知";
+  var selectedPlayerId = null;
+
   var sessionId = null;
-  var sessionUuid = "live-" + Date.now();
+  var sessionUuid = null;
 
   var recognition = null;
-  var running = false;
-  var started = false;
+  var recognitionReady = false;
   var recognitionActive = false;
+  var running = false;
+  var resourcesReady = false;
 
   var audioStream = null;
   var audioCtx = null;
@@ -35,16 +45,15 @@
   var vadTimer = null;
   var timerJob = null;
 
-  var currentSpeakerId = null;
   var currentParts = [];
-  var draftLabel = "";
   var lastVoiceAt = Date.now();
   var elapsedSeconds = 0;
 
   var sending = false;
   var queue = [];
 
-  var lastRenderedHash = "";
+  var playerHistories = {};
+  var playerSeconds = {};
 
   function pad(v) {
     return v < 10 ? "0" + v : String(v);
@@ -65,9 +74,20 @@
     statusText.textContent = text;
   }
 
+  function ensurePlayerMap() {
+    for (var i = 1; i <= playerCount; i++) {
+      if (!playerHistories[i]) {
+        playerHistories[i] = [];
+      }
+      if (!playerSeconds[i]) {
+        playerSeconds[i] = 0;
+      }
+    }
+  }
+
   function setQueueHint() {
     if (sending) {
-      queueText.textContent = "后端分析中，新的语音片段会排队等待，避免请求错乱。排队数：" + queue.length;
+      queueText.textContent = "后端分析中，新的语音片段会排队等待。排队数：" + queue.length;
       return;
     }
     if (queue.length > 0) {
@@ -77,28 +97,24 @@
     queueText.textContent = "";
   }
 
-  function addMessage(role, speaker, content, extraClass) {
-    var wrap = document.createElement("div");
-    wrap.className = "msg";
-
-    var avatar = document.createElement("div");
-    avatar.className = "avatar" + (role === "ai" ? " ai" : "");
-    avatar.textContent = role === "ai" ? "AI" : ((speaker || "?") + "号");
-
-    var bubble = document.createElement("div");
-    bubble.className = "bubble" + (role === "ai" ? " ai" : "") + (extraClass ? (" " + extraClass) : "");
-    bubble.textContent = content;
-
-    wrap.appendChild(avatar);
-    wrap.appendChild(bubble);
-    messageBoard.appendChild(wrap);
-    messageBoard.scrollTop = messageBoard.scrollHeight;
+  function renderTextList(container, items) {
+    if (!container) {
+      return;
+    }
+    var list = Array.isArray(items) ? items.filter(Boolean) : [];
+    if (list.length === 0) {
+      container.innerHTML = "<li>暂无</li>";
+      return;
+    }
+    container.innerHTML = "";
+    list.forEach(function (item) {
+      var li = document.createElement("li");
+      li.textContent = item;
+      container.appendChild(li);
+    });
   }
 
   function renderProbabilityBars(items) {
-    if (!probabilityChart) {
-      return;
-    }
     var list = Array.isArray(items) ? items : [];
     if (list.length === 0) {
       probabilityChart.innerHTML = "<div class=\"panel-main\">暂无概率数据</div>";
@@ -120,123 +136,212 @@
     });
   }
 
-  function renderTextList(container, items) {
-    if (!container) {
-      return;
+  function findRoleProb(assessment, roleName) {
+    if (!assessment || !Array.isArray(assessment.roleProbabilities)) {
+      return 0;
     }
-    var list = Array.isArray(items) ? items.filter(Boolean) : [];
-    if (list.length === 0) {
-      container.innerHTML = "<li>暂无</li>";
-      return;
-    }
-    container.innerHTML = "";
-    list.forEach(function (item) {
-      var li = document.createElement("li");
-      li.textContent = item;
-      container.appendChild(li);
+    var aliases = {
+      "平民": ["平民", "村民"],
+      "狼人": ["狼人", "狼"],
+      "预言家": ["预言家"],
+      "女巫": ["女巫"],
+      "猎人": ["猎人"],
+      "守卫": ["守卫"]
+    };
+    var expected = aliases[roleName] || [roleName];
+    var found = assessment.roleProbabilities.find(function (item) {
+      if (!item || !item.role) {
+        return false;
+      }
+      return expected.some(function (name) {
+        return item.role === name;
+      });
     });
+    if (!found || typeof found.probability !== "number") {
+      return 0;
+    }
+    return Math.max(0, Math.min(1, found.probability));
+  }
+
+  function renderRoleMatrix(playerAssessments) {
+    var list = Array.isArray(playerAssessments) ? playerAssessments : [];
+    if (list.length === 0) {
+      roleMatrix.innerHTML = "<div class=\"panel-main\">暂无角色概率明细</div>";
+      return;
+    }
+    var sorted = list.slice().sort(function (a, b) {
+      return (a.playerId || 0) - (b.playerId || 0);
+    });
+
+    var html = "<div class=\"matrix-head\"><span>玩家</span><span>狼人</span><span>预言家</span><span>女巫</span><span>猎人</span><span>守卫</span><span>平民</span></div>";
+    sorted.forEach(function (item) {
+      html += "<div class=\"matrix-row\">" +
+        "<span>" + (item.playerId || "?") + "号</span>" +
+        "<span>" + Math.round(findRoleProb(item, "狼人") * 100) + "%</span>" +
+        "<span>" + Math.round(findRoleProb(item, "预言家") * 100) + "%</span>" +
+        "<span>" + Math.round(findRoleProb(item, "女巫") * 100) + "%</span>" +
+        "<span>" + Math.round(findRoleProb(item, "猎人") * 100) + "%</span>" +
+        "<span>" + Math.round(findRoleProb(item, "守卫") * 100) + "%</span>" +
+        "<span>" + Math.round(findRoleProb(item, "平民") * 100) + "%</span>" +
+        "</div>";
+    });
+    roleMatrix.innerHTML = html;
   }
 
   function renderStrategyPanels(data) {
+    data = data || {};
     renderProbabilityBars(data.probabilities || []);
-
-    if (voteAdviceText) {
-      voteAdviceText.textContent = data.voteAdvice || "暂无稳定归票建议";
-    }
-    if (suggestedSpeechText) {
-      suggestedSpeechText.textContent = data.suggestedSpeech || "暂无建议发言";
-    }
+    renderRoleMatrix(data.playerAssessments || []);
+    voteAdviceText.textContent = data.voteAdvice || "暂无稳定归票建议";
+    suggestedSpeechText.textContent = data.suggestedSpeech || "暂无建议发言";
     renderTextList(votePointsList, data.votePoints || []);
     renderTextList(wolfTalkList, data.werewolfTalks || []);
   }
 
-  function renderFromEvents(events) {
-    if (!events || !events.length) {
-      return;
-    }
-
-    var hash = JSON.stringify(events.map(function (e) {
-      return [e.eventType, e.speakerPlayerId, e.content, e.createdAt];
-    }));
-    if (hash === lastRenderedHash) {
-      return;
-    }
-    lastRenderedHash = hash;
-
-    messageBoard.innerHTML = "";
-    events.forEach(function (event) {
-      if (event.eventType === "PLAYER_SPEECH") {
-        addMessage("player", event.speakerPlayerId, event.content || "");
-      } else if (event.eventType === "AI_INSIGHT") {
-        addMessage("ai", null, event.content || "");
-      }
+  function renderCountChips() {
+    countChips.innerHTML = "";
+    playerCountOptions.forEach(function (count) {
+      var btn = document.createElement("button");
+      btn.className = "count-chip" + (count === playerCount ? " active" : "");
+      btn.textContent = count + "人";
+      btn.addEventListener("click", function () {
+        if (count === playerCount) {
+          return;
+        }
+        switchPlayerCount(count);
+      });
+      countChips.appendChild(btn);
     });
   }
 
-  function parseSpeakerPrompt(text) {
-    if (!text) {
-      return { speakerId: null, cleaned: "", purePrompt: false };
+  function buildPreview(playerId) {
+    var history = playerHistories[playerId] || [];
+    if (running && selectedPlayerId === playerId && currentParts.length > 0) {
+      return currentParts.join(" ");
     }
-    var reg = /(轮到)?\s*(\d+)\s*号(?:玩家)?发言[：:，,\s]*/g;
-    var found = null;
-    var cleaned = text;
+    if (history.length === 0) {
+      return "点击右下角麦克风开始录音...";
+    }
+    return history.slice(-2).join("\n");
+  }
 
-    cleaned = cleaned.replace(reg, function (_, __, id) {
-      found = parseInt(id, 10);
-      return "";
-    }).trim();
+  function renderPlayerGrid() {
+    ensurePlayerMap();
+    playerGrid.innerHTML = "";
+    for (var i = 1; i <= playerCount; i++) {
+      var card = document.createElement("article");
+      card.className = "player-card" + (selectedPlayerId === i ? " active" : "");
 
-    var purePrompt = !!found && cleaned.length === 0;
+      var top = document.createElement("div");
+      top.className = "player-top";
+      top.innerHTML = "<strong>" + i + "号玩家</strong><span>" + fmtTimer(playerSeconds[i] || 0) + "</span>";
 
-    return {
-      speakerId: found,
-      cleaned: cleaned,
-      purePrompt: purePrompt
-    };
+      var body = document.createElement("div");
+      body.className = "player-body";
+      body.textContent = buildPreview(i);
+
+      var micBtn = document.createElement("button");
+      micBtn.className = "player-mic" + (running && selectedPlayerId === i ? " on" : "");
+      micBtn.textContent = running && selectedPlayerId === i ? "录音中" : "录音";
+      micBtn.addEventListener("click", (function (id) {
+        return function () {
+          onPlayerMicClick(id);
+        };
+      })(i));
+
+      card.appendChild(top);
+      card.appendChild(body);
+      card.appendChild(micBtn);
+      playerGrid.appendChild(card);
+    }
+  }
+
+  function resetSessionData() {
+    sessionId = null;
+    sessionUuid = "live-" + Date.now() + "-" + playerCount;
+    queue = [];
+    sending = false;
+    currentParts = [];
+    selectedPlayerId = null;
+    playerHistories = {};
+    playerSeconds = {};
+    ensurePlayerMap();
+    setQueueHint();
+    renderPlayerGrid();
+    renderStrategyPanels({});
+  }
+
+  function pauseListening() {
+    running = false;
+    stopRecognition();
+    flushCurrentSegment("manual");
+    setStatus("已暂停");
+    toggleBtn.textContent = "恢复监听";
+    recBtn.textContent = "PAUSE";
+    renderPlayerGrid();
+  }
+
+  function switchPlayerCount(count) {
+    pauseListening();
+    playerCount = count;
+    renderCountChips();
+    resetSessionData();
+    setHint("已切换为" + count + "人局，请点击对应玩家卡片开始录音。");
+  }
+
+  function updateMyRoleHint(role) {
+    if (!role || role === myRoleHint) {
+      return;
+    }
+    pauseListening();
+    myRoleHint = role;
+    resetSessionData();
+    setHint("我的身份已切换为“" + role + "”，后续分析将按该身份约束。");
   }
 
   function appendTranscript(rawText) {
-    var parsed = parseSpeakerPrompt(rawText);
-    if (parsed.speakerId) {
-      currentSpeakerId = parsed.speakerId;
-      draftLabel = currentSpeakerId + "号玩家";
-    }
-    if (parsed.purePrompt || !parsed.cleaned) {
+    if (!selectedPlayerId) {
       return;
     }
-
-    currentParts.push(parsed.cleaned);
+    var text = (rawText || "").replace(/\s+/g, " ").trim();
+    if (!text) {
+      return;
+    }
+    currentParts.push(text);
     lastVoiceAt = Date.now();
-
-    var preview = currentParts.join(" ").slice(0, 80);
-    setHint((draftLabel || "当前玩家") + "转写中：" + preview + (preview.length >= 80 ? "..." : ""));
+    renderPlayerGrid();
   }
 
   function currentTranscript() {
-    var text = currentParts.join(" ").replace(/\s+/g, " ").trim();
-    return text;
+    return currentParts.join(" ").replace(/\s+/g, " ").trim();
   }
 
   function flushCurrentSegment(reason) {
+    if (!selectedPlayerId) {
+      return;
+    }
     var text = currentTranscript();
     if (!text) {
       return;
     }
 
-    var player = currentSpeakerId;
-    addMessage("player", player, text, "pending");
+    playerHistories[selectedPlayerId].push(text);
+    if (playerHistories[selectedPlayerId].length > 8) {
+      playerHistories[selectedPlayerId] = playerHistories[selectedPlayerId].slice(-8);
+    }
 
-    var payloadText = player ? (player + "号玩家：" + text) : text;
     var silenceSeconds = reason === "silence" ? Math.floor((Date.now() - lastVoiceAt) / 1000) : 0;
-
     queue.push({
-      transcript: payloadText,
+      transcript: text,
       phase: PHASE,
       silenceSeconds: silenceSeconds,
-      speakerPlayerId: player
+      speakerPlayerId: selectedPlayerId,
+      myRoleHint: myRoleHint
     });
+
     currentParts = [];
-    setHint("已切段，等待后端分析...");
+    setHint(selectedPlayerId + "号玩家片段已提交，等待后端分析...");
+    renderPlayerGrid();
     setQueueHint();
     consumeQueue();
   }
@@ -264,14 +369,9 @@
       var data = await res.json();
       if (typeof data.elapsedSeconds === "number") {
         elapsedSeconds = data.elapsedSeconds;
-        timerText.textContent = fmtTimer(elapsedSeconds);
       }
-      if (data.currentSpeakerId) {
-        currentSpeakerId = data.currentSpeakerId;
-      }
-      renderFromEvents(data.events || []);
       renderStrategyPanels(data);
-      setHint("分析已更新，继续监听中...");
+      setHint("分析已更新，可继续录音。");
     } catch (err) {
       console.error(err);
       setHint("分析请求失败：" + err.message);
@@ -284,72 +384,6 @@
     }
   }
 
-  function initRecognition() {
-    if (recognition) {
-      return;
-    }
-    if (!SpeechRecognition) {
-      setHint("当前浏览器不支持语音转文字，请使用 Chrome Edge 最新版。\n你仍可以点击“手动发送当前段”。");
-      return;
-    }
-
-    recognition = new SpeechRecognition();
-    recognition.lang = "zh-CN";
-    recognition.continuous = true;
-    recognition.interimResults = true;
-
-    recognition.onstart = function () {
-      recognitionActive = true;
-      setStatus("实时分析中");
-      recBtn.textContent = "REC";
-    };
-
-    recognition.onresult = function (event) {
-      for (var i = event.resultIndex; i < event.results.length; i++) {
-        var result = event.results[i];
-        var text = result[0].transcript ? result[0].transcript.trim() : "";
-        if (!text) {
-          continue;
-        }
-        if (result.isFinal) {
-          appendTranscript(text);
-        }
-      }
-    };
-
-    recognition.onerror = function (event) {
-      console.warn("speech error", event.error);
-      setHint("语音识别异常：" + event.error + "，正在尝试恢复...");
-    };
-
-    recognition.onend = function () {
-      recognitionActive = false;
-      if (running) {
-        setTimeout(function () {
-          startRecognition();
-        }, 300);
-      }
-    };
-  }
-
-  function startRecognition() {
-    if (!recognition || recognitionActive) {
-      return;
-    }
-    try {
-      recognition.start();
-    } catch (err) {
-      console.warn("recognition restart ignored", err);
-    }
-  }
-
-  function stopRecognition() {
-    if (!recognition || !recognitionActive) {
-      return;
-    }
-    recognition.stop();
-  }
-
   function setupVad() {
     if (!analyser) {
       return;
@@ -357,6 +391,9 @@
     var arr = new Uint8Array(analyser.fftSize);
 
     vadTimer = window.setInterval(function () {
+      if (!running || !selectedPlayerId) {
+        return;
+      }
       analyser.getByteTimeDomainData(arr);
       var sum = 0;
       for (var i = 0; i < arr.length; i++) {
@@ -376,7 +413,75 @@
     }, 250);
   }
 
-  async function initAudio() {
+  function initRecognition() {
+    if (recognitionReady) {
+      return;
+    }
+    if (!SpeechRecognition) {
+      setHint("当前浏览器不支持语音转文字，请使用 Chrome/Edge 最新版。");
+      return;
+    }
+
+    recognition = new SpeechRecognition();
+    recognition.lang = "zh-CN";
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    recognition.onstart = function () {
+      recognitionActive = true;
+      recBtn.textContent = "REC";
+    };
+
+    recognition.onresult = function (event) {
+      for (var i = event.resultIndex; i < event.results.length; i++) {
+        var result = event.results[i];
+        if (!result[0] || !result[0].transcript) {
+          continue;
+        }
+        if (result.isFinal) {
+          appendTranscript(result[0].transcript);
+        }
+      }
+    };
+
+    recognition.onerror = function (event) {
+      setHint("语音识别异常：" + event.error + "，正在尝试恢复...");
+    };
+
+    recognition.onend = function () {
+      recognitionActive = false;
+      if (running) {
+        setTimeout(function () {
+          startRecognition();
+        }, 300);
+      }
+    };
+
+    recognitionReady = true;
+  }
+
+  function startRecognition() {
+    if (!recognitionReady || recognitionActive) {
+      return;
+    }
+    try {
+      recognition.start();
+    } catch (err) {
+      console.warn("recognition restart ignored", err);
+    }
+  }
+
+  function stopRecognition() {
+    if (!recognitionReady || !recognitionActive) {
+      return;
+    }
+    recognition.stop();
+  }
+
+  async function initAudioResources() {
+    if (resourcesReady) {
+      return;
+    }
     audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
     audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     var source = audioCtx.createMediaStreamSource(audioStream);
@@ -384,15 +489,20 @@
     analyser.fftSize = 2048;
     source.connect(analyser);
     setupVad();
+    initRecognition();
+    resourcesReady = true;
   }
 
-  async function createSession() {
+  async function createSessionIfNeeded() {
+    if (sessionId) {
+      return;
+    }
     var body = {
       sessionUuid: sessionUuid,
-      totalPlayers: 12,
-      gameMode: "12人标准局",
+      totalPlayers: playerCount,
+      gameMode: playerCount + "人局",
       myPlayerId: 1,
-      myRoleHint: "未知"
+      myRoleHint: myRoleHint
     };
 
     var res = await fetch(API_ROOT + "/werewolf/live/sessions", {
@@ -409,11 +519,53 @@
     sessionId = data.sessionId;
   }
 
+  async function startRecordingForPlayer(playerId) {
+    selectedPlayerId = playerId;
+    setStatus("实时分析中");
+    setHint("正在启动 " + playerId + " 号玩家录音...");
+
+    await initAudioResources();
+    await createSessionIfNeeded();
+
+    running = true;
+    lastVoiceAt = Date.now();
+    startRecognition();
+
+    toggleBtn.textContent = "暂停监听";
+    recBtn.textContent = "REC";
+    setHint("正在录音：" + playerId + "号玩家。安静后会自动切段并分析。");
+    renderPlayerGrid();
+  }
+
+  async function onPlayerMicClick(playerId) {
+    if (running && selectedPlayerId === playerId) {
+      pauseListening();
+      return;
+    }
+
+    if (running && selectedPlayerId && selectedPlayerId !== playerId) {
+      flushCurrentSegment("manual");
+    }
+
+    try {
+      await startRecordingForPlayer(playerId);
+    } catch (err) {
+      console.error(err);
+      setHint("启动录音失败：" + err.message);
+    }
+  }
+
   function startTimer() {
-    timerText.textContent = fmtTimer(elapsedSeconds);
+    if (timerJob) {
+      return;
+    }
     timerJob = window.setInterval(function () {
       elapsedSeconds += 1;
+      if (running && selectedPlayerId) {
+        playerSeconds[selectedPlayerId] = (playerSeconds[selectedPlayerId] || 0) + 1;
+      }
       timerText.textContent = fmtTimer(elapsedSeconds);
+      renderPlayerGrid();
     }, 1000);
   }
 
@@ -442,59 +594,34 @@
     }
   }
 
-  async function startAll() {
-    setStatus("实时分析中");
-    setHint("正在创建实时会话...");
-
-    if (!started) {
-      await createSession();
-      await initAudio();
-      started = true;
-    }
-    initRecognition();
-    startRecognition();
-    running = true;
-    if (!timerJob) {
-      startTimer();
-    }
-
-    setHint("已开始监听：检测到安静后会自动切段并发送 AI 分析。");
-  }
-
-  function pauseListening() {
-    running = false;
-    stopRecognition();
-    flushCurrentSegment("manual");
-    setStatus("已暂停");
-    setHint("监听已暂停，点击“恢复监听”继续。");
-    toggleBtn.textContent = "恢复监听";
-    recBtn.textContent = "PAUSE";
-  }
-
-  async function toggleRun() {
+  toggleBtn.addEventListener("click", function () {
     if (!running) {
-      await startAll();
-      toggleBtn.textContent = "暂停监听";
-      recBtn.textContent = "REC";
+      if (selectedPlayerId) {
+        startRecordingForPlayer(selectedPlayerId).catch(function (err) {
+          setHint("恢复失败：" + err.message);
+        });
+      } else {
+        setHint("请先点击一个玩家卡片的录音按钮。");
+      }
       return;
     }
-
     pauseListening();
-  }
-
-  toggleBtn.addEventListener("click", function () {
-    toggleRun().catch(function (err) {
-      console.error(err);
-      setHint("启动失败：" + err.message);
-    });
-  });
-
-  recBtn.addEventListener("click", function () {
-    toggleBtn.click();
   });
 
   flushBtn.addEventListener("click", function () {
     flushCurrentSegment("manual");
+  });
+
+  recBtn.addEventListener("click", function () {
+    if (selectedPlayerId) {
+      onPlayerMicClick(selectedPlayerId);
+      return;
+    }
+    onPlayerMicClick(1);
+  });
+
+  myRoleSelect.addEventListener("change", function (e) {
+    updateMyRoleHint((e.target && e.target.value) || "未知");
   });
 
   closeBtn.addEventListener("click", function () {
@@ -505,11 +632,9 @@
     cleanup();
   });
 
+  resetSessionData();
+  renderCountChips();
   renderStrategyPanels({});
-
-  startAll().catch(function (err) {
-    console.error(err);
-    setStatus("启动失败");
-    setHint("无法启动实时分析：" + err.message + "。请检查麦克风权限和后端服务。\n你可点击“暂停监听/恢复监听”重试。");
-  });
+  timerText.textContent = fmtTimer(elapsedSeconds);
+  startTimer();
 })();

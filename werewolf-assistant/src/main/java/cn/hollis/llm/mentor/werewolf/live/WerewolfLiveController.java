@@ -38,7 +38,7 @@ public class WerewolfLiveController {
     public LiveAnalyzeResponse consumeChunk(@PathVariable Long sessionId,
                                             @RequestBody LiveChunkRequest request) {
         LiveChunkRequest safeReq = request == null
-                ? new LiveChunkRequest("", "白天发言", null, null)
+                ? new LiveChunkRequest("", "白天发言", null, null, "未知")
                 : request;
         String transcript = safeReq.transcript() == null ? "" : safeReq.transcript();
         log.info("[live-chunk] sessionId={}, phase={}, speaker={}, silenceSeconds={}, textLen={}, preview={}",
@@ -59,3 +59,4 @@ public class WerewolfLiveController {
         return normalized.length() <= 80 ? normalized : normalized.substring(0, 80) + "...";
     }
 }
+

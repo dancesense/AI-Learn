@@ -1,5 +1,7 @@
 package cn.hollis.llm.mentor.werewolf.live.dto;
 
+import cn.hollis.llm.mentor.werewolf.model.PlayerRoleAssessment;
+
 import java.util.List;
 
 public record LiveAnalyzeResponse(
@@ -9,6 +11,7 @@ public record LiveAnalyzeResponse(
         String silenceAlert,
         List<LiveEventView> events,
         List<PlayerProbabilityBar> probabilities,
+        List<PlayerRoleAssessment> playerAssessments,
         String suggestedSpeech,
         String voteAdvice,
         List<String> votePoints,

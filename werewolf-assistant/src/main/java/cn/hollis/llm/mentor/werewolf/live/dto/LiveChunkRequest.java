@@ -4,7 +4,7 @@ public record LiveChunkRequest(
         String transcript,
         String phase,
         Integer silenceSeconds,
-        Integer speakerPlayerId
+        Integer speakerPlayerId,
+        String myRoleHint
 ) {
 }
-

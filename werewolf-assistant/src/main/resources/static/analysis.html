@@ -12,19 +12,50 @@
     <header class="headbar">
       <div class="status-chip">
         <span class="status-dot"></span>
-        <span id="statusText">实时分析中</span>
+        <span id="statusText">实时分析</span>
       </div>
       <div style="display:flex; align-items:center; gap:16px;">
         <span class="timer" id="timerText">00:00:00</span>
-        <a class="link-danger" id="closeBtn" href="/index.html">结束复盘</a>
+        <a class="link-danger" id="closeBtn" href="/index.html">复盘</a>
       </div>
     </header>
 
-    <section class="board" id="messageBoard"></section>
+    <section class="config-panel">
+      <section class="count-panel">
+        <div class="count-label">玩家人数：</div>
+        <div class="count-chips" id="countChips"></div>
+      </section>
+      <section class="role-panel">
+        <label class="role-label" for="myRoleSelect">我的身份：</label>
+        <select id="myRoleSelect" class="role-select">
+          <option value="未知">未知</option>
+          <option value="狼人">狼人</option>
+          <option value="预言家">预言家</option>
+          <option value="女巫">女巫</option>
+          <option value="猎人">猎人</option>
+          <option value="守卫">守卫</option>
+          <option value="平民">平民</option>
+        </select>
+      </section>
+    </section>
+
+    <section class="player-grid-box">
+      <div class="grid-head">
+        <span>玩家录音位（区域内滚动）</span>
+      </div>
+      <section class="player-grid-wrap" id="playerGridWrap">
+        <section class="player-grid" id="playerGrid"></section>
+      </section>
+    </section>
 
     <section class="panel">
       <div class="panel-title">狼人概率预测</div>
       <div id="probabilityChart" class="prob-chart"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-title">角色概率明细</div>
+      <div id="roleMatrix" class="role-matrix"></div>
     </section>
 
     <section class="panel">
@@ -44,7 +75,7 @@
       <button id="flushBtn">手动发送当前段</button>
     </section>
 
-    <div class="hint" id="hintText">准备中：正在申请麦克风权限...</div>
+    <div class="hint" id="hintText">点击任意玩家卡片右下角麦克风开始录音。</div>
     <div class="hint wait" id="queueText"></div>
   </main>
 
