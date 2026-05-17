@@ -1,0 +1,373 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>对局复盘 - 狼人杀AI助手</title>
+  <link rel="stylesheet" href="/assets/styles.css" />
+  <style>
+    .tab-bar {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 14px;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+    .tab-bar::-webkit-scrollbar { display: none; }
+    .tab-btn {
+      flex-shrink: 0;
+      padding: 7px 16px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: rgba(255,255,255,0.05);
+      color: var(--subtext);
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .tab-btn.active {
+      background: rgba(255,68,105,0.2);
+      border-color: rgba(255,68,105,0.7);
+      color: #ff7794;
+      font-weight: 700;
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* 发言时间线 */
+    .speech-entry {
+      display: grid;
+      grid-template-columns: 50px 1fr;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .speech-player-tag {
+      text-align: right;
+      font-size: 12px;
+      font-weight: 700;
+      color: #8aabde;
+      padding-top: 4px;
+    }
+    .speech-bubble {
+      background: rgba(34,57,95,0.8);
+      border: 1px solid var(--line);
+      border-radius: 0 12px 12px 12px;
+      padding: 8px 10px;
+      font-size: 12px;
+      line-height: 1.6;
+      color: #dde8ff;
+    }
+    .speech-time-badge {
+      font-size: 10px;
+      color: var(--subtext);
+      margin-bottom: 2px;
+      display: block;
+    }
+
+    /* 投票统计图 */
+    .vote-stat-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+      font-size: 13px;
+    }
+    .vote-stat-label { min-width: 52px; color: #c8d8f8; }
+    .vote-bar-track {
+      flex: 1;
+      height: 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.1);
+      overflow: hidden;
+    }
+    .vote-bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #ff6080, #ff8c40);
+    }
+    .vote-count-num {
+      min-width: 28px;
+      text-align: right;
+      color: var(--subtext);
+      font-size: 12px;
+    }
+
+    /* 身份揭晓 */
+    .identity-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid var(--line);
+      margin-bottom: 6px;
+      font-size: 13px;
+    }
+    .identity-num {
+      width: 36px;
+      height: 36px;
+      border-radius: 999px;
+      background: rgba(255,68,105,0.2);
+      color: #ff7794;
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      font-size: 14px;
+      flex-shrink: 0;
+    }
+    .identity-role {
+      font-weight: 700;
+      color: #dde8ff;
+    }
+    .identity-status {
+      margin-left: auto;
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 999px;
+    }
+    .status-alive { background: rgba(37,208,143,0.2); color: #25d08f; }
+    .status-dead { background: rgba(255,68,105,0.15); color: #ff7794; }
+  </style>
+</head>
+<body>
+<div class="phone">
+  <main class="page">
+
+    <div class="top-row" style="margin-bottom:12px;">
+      <button onclick="history.back()" style="background:transparent;border:0;color:var(--accent);font-size:14px;font-weight:700;cursor:pointer;">← 返回</button>
+      <h1 class="h1" style="font-size:22px;">对局复盘</h1>
+      <div style="width:50px;"></div>
+    </div>
+
+    <!-- Tab切换 -->
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="speeches">📝 发言记录</button>
+      <button class="tab-btn" data-tab="votes">🗳️ 投票统计</button>
+      <button class="tab-btn" data-tab="skills">✨ 技能记录</button>
+      <button class="tab-btn" data-tab="identities">🎭 身份揭晓</button>
+    </div>
+
+    <!-- 发言记录 Tab -->
+    <div class="tab-content active" id="tab-speeches">
+      <div id="speechList">
+        <div style="color:var(--subtext);font-size:13px;text-align:center;padding:20px 0;">
+          正在加载发言记录...
+        </div>
+      </div>
+    </div>
+
+    <!-- 投票统计 Tab -->
+    <div class="tab-content" id="tab-votes">
+      <div id="voteChart">
+        <div style="color:var(--subtext);font-size:13px;text-align:center;padding:20px 0;">
+          正在加载投票数据...
+        </div>
+      </div>
+    </div>
+
+    <!-- 技能记录 Tab -->
+    <div class="tab-content" id="tab-skills">
+      <div id="skillList">
+        <div style="color:var(--subtext);font-size:13px;text-align:center;padding:20px 0;">
+          正在加载技能记录...
+        </div>
+      </div>
+    </div>
+
+    <!-- 身份揭晓 Tab -->
+    <div class="tab-content" id="tab-identities">
+      <div id="identityList">
+        <div style="color:var(--subtext);font-size:13px;text-align:center;padding:20px 0;">
+          正在加载身份信息...
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <nav class="footer-nav">
+    <div onclick="window.location.href='/index.html'">🏠 首页</div>
+    <div onclick="window.location.href='/analysis.html'">🎮 对局</div>
+  </nav>
+</div>
+
+<script>
+(function () {
+  // Tab 切换
+  var tabBtns = document.querySelectorAll(".tab-btn");
+  var tabContents = document.querySelectorAll(".tab-content");
+
+  tabBtns.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var target = btn.getAttribute("data-tab");
+      tabBtns.forEach(function (b) { b.classList.remove("active"); });
+      tabContents.forEach(function (c) { c.classList.remove("active"); });
+      btn.classList.add("active");
+      var content = document.getElementById("tab-" + target);
+      if (content) content.classList.add("active");
+    });
+  });
+
+  // 从 URL 获取 sessionId
+  var params = new URLSearchParams(window.location.search);
+  var sessionId = params.get("sessionId") || sessionStorage.getItem("werewolf_sessionId") || "";
+  var playerCount = parseInt(sessionStorage.getItem("werewolf_playerCount") || "12");
+
+  // 关键词高亮
+  var IDENTITY_KEYWORDS = ["金水","银水","铜水","查杀","悍跳","预言家","女巫","猎人","守卫","白神","铁狼","蛋牌","断剑"];
+  var ACTION_KEYWORDS = ["跳","对跳","焊跳","占边","聊爆","踩","表水","划水","冲票","归票","压手","抗推","空守","pk","爆点"];
+
+  function highlight(text) {
+    if (!text) return "";
+    var esc = text.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    IDENTITY_KEYWORDS.forEach(function (kw) {
+      esc = esc.replace(new RegExp(kw,"g"), '<span class="kw-identity">'+kw+'</span>');
+    });
+    ACTION_KEYWORDS.forEach(function (kw) {
+      esc = esc.replace(new RegExp("(?!<[^>]*)"+kw+"(?![^<]*>)","g"), '<span class="kw-action">'+kw+'</span>');
+    });
+    return esc;
+  }
+
+  function fmtDate(str) {
+    if (!str) return "";
+    try {
+      var d = new Date(str);
+      return (d.getMonth()+1) + "/" + d.getDate() + " " + d.getHours() + ":" + (d.getMinutes()<10?"0":"")+d.getMinutes();
+    } catch(e) { return str; }
+  }
+
+  // 加载数据
+  if (sessionId) {
+    loadReview(sessionId);
+  } else {
+    // 无 sessionId 时显示提示
+    renderFallback();
+  }
+
+  function loadReview(sid) {
+    fetch("/werewolf/live/sessions/" + sid + "/review")
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (!data) { renderFallback(); return; }
+        renderSpeeches(data.events || []);
+        renderVoteChart(data.events || []);
+        renderSkills(data.events || []);
+        renderIdentities(data.events || [], playerCount);
+      })
+      .catch(function () { renderFallback(); });
+  }
+
+  function renderFallback() {
+    document.getElementById("speechList").innerHTML =
+      "<div style='color:var(--subtext);font-size:13px;text-align:center;padding:20px 0;'>暂无对局数据</div>";
+    document.getElementById("voteChart").innerHTML =
+      "<div style='color:var(--subtext);font-size:13px;text-align:center;padding:20px 0;'>暂无投票数据</div>";
+    document.getElementById("skillList").innerHTML =
+      "<div style='color:var(--subtext);font-size:13px;text-align:center;padding:20px 0;'>暂无技能记录</div>";
+    renderIdentities([], playerCount);
+  }
+
+  function renderSpeeches(events) {
+    var list = document.getElementById("speechList");
+    var speeches = events.filter(function (e) { return e.eventType === "PLAYER_SPEECH"; });
+    if (speeches.length === 0) {
+      list.innerHTML = "<div style='color:var(--subtext);font-size:13px;text-align:center;padding:20px 0;'>暂无发言记录</div>";
+      return;
+    }
+    list.innerHTML = speeches.map(function (e) {
+      return "<div class='speech-entry'>" +
+        "<div class='speech-player-tag'>" + (e.speakerLabel || "?") + "</div>" +
+        "<div class='speech-bubble'>" +
+          "<span class='speech-time-badge'>" + fmtDate(e.createdAt) + "</span>" +
+          highlight(e.content || "") +
+        "</div>" +
+      "</div>";
+    }).join("");
+  }
+
+  function renderVoteChart(events) {
+    var container = document.getElementById("voteChart");
+    var speeches = events.filter(function (e) { return e.eventType === "PLAYER_SPEECH"; });
+    // 从发言中提取投票信息（简单统计）
+    var voteCounts = {};
+    speeches.forEach(function (e) {
+      var text = e.content || "";
+      var match = text.match(/(\d+)\s*号/g);
+      if (match) {
+        match.forEach(function (m) {
+          var num = m.replace(/[^\d]/g,"");
+          voteCounts[num] = (voteCounts[num] || 0) + 1;
+        });
+      }
+    });
+
+    var entries = Object.keys(voteCounts).sort(function (a,b) { return voteCounts[b]-voteCounts[a]; }).slice(0, 8);
+    if (entries.length === 0) {
+      container.innerHTML = "<div style='color:var(--subtext);font-size:13px;text-align:center;padding:20px 0;'>暂无可统计的投票数据</div>";
+      return;
+    }
+
+    var maxCount = entries.reduce(function (m,k) { return Math.max(m, voteCounts[k]); }, 1);
+    container.innerHTML = "<div style='font-size:12px;color:var(--subtext);margin-bottom:10px;'>被提及次数统计（被讨论越多 = 越受关注）</div>" +
+      entries.map(function (k) {
+        var pct = Math.round(voteCounts[k] / maxCount * 100);
+        return "<div class='vote-stat-row'>" +
+          "<span class='vote-stat-label'>" + k + "号</span>" +
+          "<div class='vote-bar-track'><div class='vote-bar-fill' style='width:" + pct + "%'></div></div>" +
+          "<span class='vote-count-num'>" + voteCounts[k] + "次</span>" +
+          "</div>";
+      }).join("");
+  }
+
+  function renderSkills(events) {
+    var list = document.getElementById("skillList");
+    var skillEvents = events.filter(function (e) { return e.eventType === "AI_INSIGHT"; });
+    if (skillEvents.length === 0) {
+      list.innerHTML = "<div style='color:var(--subtext);font-size:13px;text-align:center;padding:20px 0;'>暂无AI技能分析记录</div>";
+      return;
+    }
+    list.innerHTML = skillEvents.slice(-10).map(function (e) {
+      return "<div style='border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;'>" +
+        "<div style='font-size:11px;color:var(--subtext);margin-bottom:4px;'>" + fmtDate(e.createdAt) + " · AI分析</div>" +
+        "<div style='font-size:12px;color:#dde8ff;line-height:1.6;'>" + (e.content || "") + "</div>" +
+        "</div>";
+    }).join("");
+  }
+
+  function renderIdentities(events, count) {
+    var list = document.getElementById("identityList");
+    // 尝试从 AI_INSIGHT 中提取身份信息
+    var roleMap = {};
+    events.forEach(function (e) {
+      if (e.speakerPlayerId && e.eventType === "PLAYER_SPEECH") {
+        // 检测自曝关键词
+        var text = e.content || "";
+        var roles = ["预言家","女巫","猎人","守卫","平民","狼人","狼王"];
+        roles.forEach(function (role) {
+          if (text.includes("我是" + role) || text.includes("我"+role)) {
+            roleMap[e.speakerPlayerId] = role;
+          }
+        });
+      }
+    });
+
+    var html = "";
+    for (var i = 1; i <= count; i++) {
+      var role = roleMap[i] || "未知";
+      html += "<div class='identity-row'>" +
+        "<div class='identity-num'>" + i + "</div>" +
+        "<div><div class='identity-role'>" + role + "</div><div style='font-size:11px;color:var(--subtext);'>" + i + "号玩家</div></div>" +
+        "<span class='identity-status status-alive'>存活</span>" +
+        "</div>";
+    }
+    if (!html) {
+      html = "<div style='color:var(--subtext);font-size:13px;text-align:center;padding:20px 0;'>无身份信息</div>";
+    }
+    list.innerHTML = html;
+  }
+})();
+</script>
+</body>
+</html>

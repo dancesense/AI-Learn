@@ -1,71 +1,272 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>狼人杀助手</title>
+  <title>狼人杀AI助手</title>
   <link rel="stylesheet" href="/assets/styles.css" />
+  <style>
+    .history-item {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px;
+      background: rgba(255,255,255,0.04);
+      margin-bottom: 8px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .history-item:hover { background: rgba(255,255,255,0.08); }
+    .history-info { flex: 1; }
+    .history-title { font-size: 15px; font-weight: 700; }
+    .history-meta { font-size: 12px; color: var(--subtext); margin-top: 2px; }
+    .history-badge {
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .badge-win { background: rgba(37,208,143,0.2); color: #25d08f; }
+    .badge-lose { background: rgba(255,68,105,0.2); color: #ff7794; }
+    .badge-ongoing { background: rgba(255,188,45,0.2); color: #ffbc2d; }
+  </style>
 </head>
 <body>
 <div class="phone">
   <main class="page">
     <div class="top-row">
-      <h1 class="h1">数据看板</h1>
+      <h1 class="h1">狼人杀助手</h1>
       <div class="date" id="dateText"></div>
     </div>
 
+    <!-- 数据统计 -->
     <section class="stats-grid">
       <article class="card">
-        <div class="card-label">总局数 / 胜率</div>
-        <div class="card-value">412</div>
-      </article>
-      <article class="card">
-        <div class="card-label">AI辅助成功率</div>
-        <div class="card-value">92%</div>
+        <div class="card-label">历史总局数</div>
+        <div class="card-value" id="totalGames" style="font-size:36px;">-</div>
       </article>
     </section>
 
-    <section class="live-card">
-      <div>
-        <div style="font-size: 34px; font-weight: 700;">2026 全球狼王争霸赛</div>
-        <div class="date" style="margin-top: 8px;">实时播报中 · 1.2w 人在看</div>
-      </div>
-    </section>
+    <!-- 开始新对局 -->
+    <div class="new-session-card" id="newGameBtn">
+      <div class="new-session-icon">🐺</div>
+      <div class="new-session-label">开始新对局</div>
+      <div class="new-session-sub">选择人数配置，进入实时AI辅助</div>
+    </div>
 
-    <h2 class="section-title">活跃组局</h2>
-    <section class="room-row">
-      <div style="display:flex; gap:10px; align-items:center;">
-        <div class="badge-round">12</div>
-        <div>
-          <div style="font-size:25px; font-weight:700;">12人标准守卫局</div>
-          <div class="date">缺3人 · 高频房 · 实时转写</div>
-        </div>
+    <!-- 历史记录 -->
+    <h2 class="section-title" style="margin-top:20px;">最近对局</h2>
+    <div id="historyList">
+      <div style="color:var(--subtext);font-size:13px;text-align:center;padding:20px 0;">
+        暂无历史记录
       </div>
-      <button class="btn">加入</button>
-    </section>
-
-    <section class="room-row featured">
-      <div style="display:flex; gap:10px; align-items:center;">
-        <div class="badge-round">9</div>
-        <div>
-          <div style="font-size:25px; font-weight:700;">9人娱乐明牌局</div>
-          <div class="date">缺1人 · 新手友好 · 语音复盘</div>
-        </div>
-      </div>
-      <button class="btn small-btn">加入</button>
-    </section>
+    </div>
   </main>
 
-  <button id="startBtn" class="mic-fab" title="开始录音">麦克风</button>
-
-  <nav class="footer-nav">
-    <div class="active">首页</div>
-    <div>分析</div>
-    <div>图鉴</div>
-    <div>我的</div>
+  <nav class="footer-nav" style="grid-template-columns: repeat(3, 1fr);">
+    <div class="active">🏠 首页</div>
+    <div onclick="window.location.href='/analysis.html'">🎮 对局</div>
+    <div onclick="window.location.href='/game-over.html'">🏁 结束</div>
   </nav>
 </div>
 
-<script src="/assets/home.js"></script>
+<!-- ====== 模式选择弹窗 ====== -->
+<div class="modal-overlay hidden" id="modeModal">
+  <div class="modal-sheet">
+    <div class="modal-title">选择对局配置</div>
+    <div class="modal-subtitle">选择人数及配置，支持自定义</div>
+
+    <!-- 人数模式 -->
+    <div class="mode-grid" id="modeGrid">
+      <div class="mode-card" data-count="6" data-name="标准六人局" data-roles="2狼 2民 1预言家 1女巫">
+        <div class="mode-num">6</div>
+        <div class="mode-name">标准六人局</div>
+        <div class="mode-roles">2狼 2民<br>1预言家 1女巫</div>
+      </div>
+      <div class="mode-card" data-count="6" data-name="网易六人局" data-roles="2狼 2民 1预言家 1猎人">
+        <div class="mode-num">6</div>
+        <div class="mode-name">网易六人局</div>
+        <div class="mode-roles">2狼 2民<br>1预言家 1猎人</div>
+      </div>
+      <div class="mode-card" data-count="9" data-name="标准九人局" data-roles="3狼 3民 1预言家 1女巫 1猎人">
+        <div class="mode-num">9</div>
+        <div class="mode-name">标准九人局</div>
+        <div class="mode-roles">3狼 3民<br>1预言家 1女巫 1猎人</div>
+      </div>
+      <div class="mode-card" data-count="10" data-name="标准十人局" data-roles="3狼 4民 1预言家 1猎人">
+        <div class="mode-num">10</div>
+        <div class="mode-name">标准十人局</div>
+        <div class="mode-roles">3狼 4民<br>1预言家 1猎人</div>
+      </div>
+      <div class="mode-card" data-count="12" data-name="标准十二人局" data-roles="3狼 1狼王 4民 1预言家 1女巫 1猎人 1守卫">
+        <div class="mode-num">12</div>
+        <div class="mode-name">标准十二人局</div>
+        <div class="mode-roles">3狼 1狼王 4民<br>1预言家 1女巫 1猎人 1守卫</div>
+      </div>
+    </div>
+
+    <!-- 我的身份 -->
+    <div style="font-size:14px;font-weight:700;color:#c8d8f8;margin-bottom:10px;">选择我的身份</div>
+    <div class="role-grid" id="roleGrid">
+      <div class="role-chip" data-role="未知">❓ 未知</div>
+      <div class="role-chip" data-role="狼人">🐺 狼人</div>
+      <div class="role-chip" data-role="预言家">🔮 预言家</div>
+      <div class="role-chip" data-role="女巫">🧪 女巫</div>
+      <div class="role-chip" data-role="猎人">🏹 猎人</div>
+      <div class="role-chip" data-role="守卫">🛡️ 守卫</div>
+      <div class="role-chip" data-role="平民">👤 平民</div>
+      <div class="role-chip" data-role="狼王">👑 狼王</div>
+    </div>
+
+    <!-- 我是几号位 -->
+    <div style="font-size:14px;font-weight:700;color:#c8d8f8;margin:14px 0 10px;">我是几号位</div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:16px;">
+      <input type="number" id="mySeatInput" value="1" min="1" max="12" style="width:60px;text-align:center;background:rgba(255,255,255,0.08);border:1px solid var(--line);border-radius:10px;color:var(--text);font-size:20px;font-weight:700;padding:6px;"/>
+      <span style="font-size:13px;color:var(--subtext);">号位</span>
+    </div>
+
+    <button class="btn" id="startGameBtn" style="width:100%;padding:14px;font-size:16px;margin-top:4px;">
+      开始游戏 →
+    </button>
+    <button class="btn btn-ghost" id="cancelModalBtn" style="width:100%;padding:12px;font-size:14px;margin-top:8px;">
+      取消
+    </button>
+  </div>
+</div>
+
+<script>
+(function () {
+  var selectedCount = 12;
+  var selectedRole = "未知";
+  var selectedSeat = 1;
+
+  // Date display
+  var now = new Date();
+  document.getElementById("dateText").textContent =
+    now.getFullYear() + "年" + (now.getMonth() + 1) + "月" + now.getDate() + "日";
+
+  // Load stats
+  loadStats();
+  loadHistory();
+
+  // Stats grid single column
+  var statsGrid = document.querySelector(".stats-grid");
+  if (statsGrid) statsGrid.style.gridTemplateColumns = "1fr";
+
+  // Open modal
+  document.getElementById("newGameBtn").addEventListener("click", function () {
+    document.getElementById("modeModal").classList.remove("hidden");
+    selectMode(document.querySelector(".mode-card[data-count='12']"));
+    selectRole(document.querySelector(".role-chip[data-role='未知']"));
+  });
+
+  document.getElementById("cancelModalBtn").addEventListener("click", function () {
+    document.getElementById("modeModal").classList.add("hidden");
+  });
+
+  document.getElementById("modeModal").addEventListener("click", function (e) {
+    if (e.target === this) {
+      this.classList.add("hidden");
+    }
+  });
+
+  // Mode cards
+  document.getElementById("modeGrid").addEventListener("click", function (e) {
+    var card = e.target.closest(".mode-card");
+    if (!card) return;
+    selectMode(card);
+  });
+
+  function selectMode(card) {
+    document.querySelectorAll(".mode-card").forEach(function (c) {
+      c.classList.remove("selected");
+    });
+    card.classList.add("selected");
+    var count = parseInt(card.getAttribute("data-count") || "0");
+    if (count === 0) {
+      // Custom
+      var customVal = parseInt(document.getElementById("customCountInput").value) || 12;
+      selectedCount = customVal;
+    } else {
+      selectedCount = count;
+    }
+  }
+
+
+  // Role chips
+  document.getElementById("roleGrid").addEventListener("click", function (e) {
+    var chip = e.target.closest(".role-chip");
+    if (!chip) return;
+    selectRole(chip);
+  });
+
+  function selectRole(chip) {
+    document.querySelectorAll(".role-chip").forEach(function (c) {
+      c.classList.remove("selected");
+    });
+    chip.classList.add("selected");
+    selectedRole = chip.getAttribute("data-role") || "未知";
+  }
+
+  // Start game
+  document.getElementById("startGameBtn").addEventListener("click", function () {
+    var selectedCard = document.querySelector(".mode-card.selected");
+    var modeName = selectedCard ? (selectedCard.getAttribute("data-name") || selectedCount + "人局") : selectedCount + "人局";
+    var seatVal = parseInt(document.getElementById("mySeatInput").value) || 1;
+    selectedSeat = Math.max(1, Math.min(seatVal, selectedCount));
+    // Store config in sessionStorage
+    sessionStorage.setItem("werewolf_count", selectedCount);
+    sessionStorage.setItem("werewolf_role", selectedRole);
+    sessionStorage.setItem("werewolf_mode", modeName);
+    sessionStorage.setItem("werewolf_seat", selectedSeat);
+    document.getElementById("modeModal").classList.add("hidden");
+    window.location.href = "/analysis.html";
+  });
+
+  // Load game stats
+  function loadStats() {
+    fetch("/werewolf/history/stats")
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (!data) return;
+        document.getElementById("totalGames").textContent = data.totalGames || 0;
+      })
+      .catch(function () {
+        document.getElementById("totalGames").textContent = "0";
+      });
+  }
+
+  // Load history
+  function loadHistory() {
+    fetch("/werewolf/history/games?size=5")
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (!data || !data.content || data.content.length === 0) return;
+        var list = document.getElementById("historyList");
+        list.innerHTML = "";
+        data.content.forEach(function (game) {
+          var el = document.createElement("div");
+          el.className = "history-item";
+          var result = game.status === "CLOSED" ? (game.outcomeNarrative && game.outcomeNarrative.includes("胜") ? "胜利" : "已结束") : "进行中";
+          var badgeClass = result === "胜利" ? "badge-win" : result === "已结束" ? "badge-lose" : "badge-ongoing";
+          var createdAt = game.createdAt ? game.createdAt.substring(0, 10) : "";
+          el.innerHTML =
+            "<div class='history-info'>" +
+              "<div class='history-title'>" + (game.gameMode || "未知模式") + "</div>" +
+              "<div class='history-meta'>" + (game.myRoleHint || "未知身份") + " · " + createdAt + "</div>" +
+            "</div>" +
+            "<span class='history-badge " + badgeClass + "'>" + result + "</span>";
+          el.addEventListener("click", function () {
+            window.location.href = "/review.html?gameId=" + game.id;
+          });
+          list.appendChild(el);
+        });
+      })
+      .catch(function () {});
+  }
+})();
+</script>
 </body>
 </html>

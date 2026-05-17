@@ -89,4 +89,13 @@ public class WerewolfHistoryController {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", ex.getMessage()));
         }
     }
+
+    @GetMapping("/stats")
+    public ResponseEntity<?> getStats() {
+        try {
+            return ResponseEntity.ok(werewolfHistoryService.getStats());
+        } catch (Exception ex) {
+            return ResponseEntity.ok(Map.of("totalGames", 0, "winRate", 0));
+        }
+    }
 }

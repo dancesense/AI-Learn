@@ -138,6 +138,27 @@ public class WerewolfHistoryService {
         return toResponse(g, snapshotRepository.countByGame_Id(gameId));
     }
 
+    @Transactional(readOnly = true)
+    public java.util.Map<String, Object> getStats() {
+        long totalGames = gameRepository.count();
+        long closedGames = gameRepository.countByStatus("CLOSED");
+        // 简单胜率计算（根据 outcomeNarrative 包含"胜"字计数）
+        long winGames = 0;
+        if (closedGames > 0) {
+            winGames = gameRepository.findAllByOrderByCreatedAtDesc(org.springframework.data.domain.PageRequest.of(0, 1000))
+                    .getContent().stream()
+                    .filter(g -> g.getOutcomeNarrative() != null && g.getOutcomeNarrative().contains("胜"))
+                    .count();
+        }
+        int winRate = closedGames > 0 ? (int) Math.round((double) winGames / closedGames * 100) : 0;
+        java.util.Map<String, Object> result = new java.util.LinkedHashMap<>();
+        result.put("totalGames", totalGames);
+        result.put("closedGames", closedGames);
+        result.put("winGames", winGames);
+        result.put("winRate", winRate);
+        return result;
+    }
+
     private WerewolfGameResponse toResponse(WerewolfGameEntity e, long snapshotCount) {
         return new WerewolfGameResponse(
                 e.getId(),

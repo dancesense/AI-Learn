@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>对局结束 - 狼人杀AI助手</title>
+  <link rel="stylesheet" href="/assets/styles.css" />
+  <style>
+    .stat-summary {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin: 16px 0;
+    }
+    .stat-item {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 8px;
+      text-align: center;
+    }
+    .stat-num {
+      font-size: 24px;
+      font-weight: 800;
+    }
+    .stat-label {
+      font-size: 11px;
+      color: var(--subtext);
+      margin-top: 2px;
+    }
+  </style>
+</head>
+<body>
+<div class="phone">
+  <main class="page">
+
+    <!-- 游戏结果 -->
+    <div class="gameover-header">
+      <div class="gameover-title" id="resultTitle">对局结束</div>
+      <div class="gameover-subtitle" id="resultSubtitle">本局游戏结束</div>
+    </div>
+
+    <!-- 数据小结 -->
+    <div class="stat-summary">
+      <div class="stat-item">
+        <div class="stat-num" id="statTime">-</div>
+        <div class="stat-label">对局时长</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num" id="statPlayers">-</div>
+        <div class="stat-label">参与人数</div>
+      </div>
+      <div class="stat-item">
+        <div class="stat-num" id="statRole">-</div>
+        <div class="stat-label">我的身份</div>
+      </div>
+    </div>
+
+    <!-- 三个选项 -->
+    <div class="gameover-actions">
+      <!-- 复盘 -->
+      <div class="action-card" id="reviewBtn">
+        <div class="action-icon review">📋</div>
+        <div class="action-info">
+          <div class="action-title">回顾对局</div>
+          <div class="action-desc">查看完整发言记录、投票统计、身份揭晓</div>
+        </div>
+      </div>
+
+      <!-- 重新选择 -->
+      <div class="action-card" id="newGameBtn">
+        <div class="action-icon new">🔄</div>
+        <div class="action-info">
+          <div class="action-title">重新选择对局</div>
+          <div class="action-desc">返回首页，重新选择板子开始新一局</div>
+        </div>
+      </div>
+
+      <!-- 延续对局 -->
+      <div class="action-card" id="continueBtn" style="border-color:rgba(37,208,143,0.35);">
+        <div class="action-icon cont">▶️</div>
+        <div class="action-info">
+          <div class="action-title">延续对局</div>
+          <div class="action-desc">保持同样配置，清空记录重新开始</div>
+        </div>
+        <div class="countdown-badge" id="countdownBadge">30s</div>
+      </div>
+    </div>
+
+  </main>
+
+  <nav class="footer-nav" style="grid-template-columns: repeat(3, 1fr);">
+    <div onclick="window.location.href='/index.html'">🏠 首页</div>
+    <div onclick="window.location.href='/analysis.html'">🎮 对局</div>
+    <div class="active">🏁 结束</div>
+  </nav>
+</div>
+
+<script>
+(function () {
+  // 读取 sessionStorage 中的游戏信息
+  var sessionId = sessionStorage.getItem("werewolf_sessionId") || "";
+  var playerCount = sessionStorage.getItem("werewolf_playerCount") || "12";
+  var myRole = sessionStorage.getItem("werewolf_myRole") || "未知";
+  var elapsed = parseInt(sessionStorage.getItem("werewolf_elapsed") || "0");
+  var gameMode = sessionStorage.getItem("werewolf_mode") || "12人标准局";
+  var gameResult = sessionStorage.getItem("werewolf_result") || "";
+
+  // 显示数据
+  document.getElementById("statPlayers").textContent = playerCount;
+  document.getElementById("statRole").textContent = myRole;
+  document.getElementById("statTime").textContent = fmtTime(elapsed);
+
+  // 结果显示
+  var titleEl = document.getElementById("resultTitle");
+  var subtitleEl = document.getElementById("resultSubtitle");
+  if (gameResult === "win") {
+    titleEl.textContent = "胜利！🎉";
+    titleEl.className = "gameover-title win";
+    subtitleEl.textContent = "恭喜！你们赢得了这局游戏";
+  } else if (gameResult === "lose") {
+    titleEl.textContent = "失败 😔";
+    titleEl.className = "gameover-title lose";
+    subtitleEl.textContent = "这局没有成功，下次继续加油";
+  } else {
+    titleEl.textContent = "对局结束";
+    subtitleEl.textContent = gameMode + " · " + playerCount + "人局";
+  }
+
+  function fmtTime(secs) {
+    var m = Math.floor(secs / 60);
+    var s = secs % 60;
+    return m + "分" + s + "秒";
+  }
+
+  // ---- 复盘按钮 ----
+  document.getElementById("reviewBtn").addEventListener("click", function () {
+    // 停止倒计时
+    clearInterval(countdownTimer);
+    if (sessionId) {
+      window.location.href = "/review.html?sessionId=" + sessionId;
+    } else {
+      window.location.href = "/review.html";
+    }
+  });
+
+  // ---- 重新选择 ----
+  document.getElementById("newGameBtn").addEventListener("click", function () {
+    clearInterval(countdownTimer);
+    sessionStorage.removeItem("werewolf_sessionId");
+    sessionStorage.removeItem("werewolf_result");
+    window.location.href = "/index.html";
+  });
+
+  // ---- 延续对局（30秒后自动跳转） ----
+  var countdown = 30;
+  var countdownBadge = document.getElementById("countdownBadge");
+
+  var countdownTimer = setInterval(function () {
+    countdown--;
+    countdownBadge.textContent = countdown + "s";
+    if (countdown <= 0) {
+      clearInterval(countdownTimer);
+      continueGame();
+    }
+  }, 1000);
+
+  document.getElementById("continueBtn").addEventListener("click", function () {
+    clearInterval(countdownTimer);
+    continueGame();
+  });
+
+  function continueGame() {
+    // 保留模式配置，清空对话记录
+    sessionStorage.removeItem("werewolf_sessionId");
+    sessionStorage.removeItem("werewolf_result");
+    sessionStorage.removeItem("werewolf_elapsed");
+    // 保留 werewolf_count, werewolf_role, werewolf_mode
+    window.location.href = "/analysis.html";
+  }
+})();
+</script>
+</body>
+</html>

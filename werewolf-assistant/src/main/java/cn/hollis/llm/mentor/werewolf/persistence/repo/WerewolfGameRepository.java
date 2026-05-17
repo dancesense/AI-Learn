@@ -12,4 +12,6 @@ public interface WerewolfGameRepository extends JpaRepository<WerewolfGameEntity
     Optional<WerewolfGameEntity> findBySessionUuid(String sessionUuid);
 
     Page<WerewolfGameEntity> findAllByOrderByCreatedAtDesc(Pageable pageable);
+
+    long countByStatus(String status);
 }

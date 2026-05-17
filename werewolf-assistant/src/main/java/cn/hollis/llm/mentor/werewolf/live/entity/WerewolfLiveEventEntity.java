@@ -20,7 +20,8 @@ import java.time.LocalDateTime;
         name = "werewolf_live_event",
         indexes = {
                 @Index(name = "idx_live_event_session_time", columnList = "session_id,created_at"),
-                @Index(name = "idx_live_event_type", columnList = "event_type")
+                @Index(name = "idx_live_event_type", columnList = "event_type"),
+                @Index(name = "idx_live_event_session_day", columnList = "session_id,day,created_at")
         }
 )
 public class WerewolfLiveEventEntity {
@@ -32,6 +33,9 @@ public class WerewolfLiveEventEntity {
     @ManyToOne(optional = false, fetch = FetchType.LAZY)
     @JoinColumn(name = "session_id", nullable = false)
     private WerewolfLiveSessionEntity session;
+
+    @Column(name = "day", nullable = false)
+    private Integer day = 1;
 
     @Column(name = "event_type", nullable = false, length = 32)
     private String eventType;
@@ -128,6 +132,14 @@ public class WerewolfLiveEventEntity {
 
     public LocalDateTime getCreatedAt() {
         return createdAt;
+    }
+
+    public Integer getDay() {
+        return day;
+    }
+
+    public void setDay(Integer day) {
+        this.day = day;
     }
 }
 
