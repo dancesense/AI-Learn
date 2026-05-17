@@ -1,87 +1,105 @@
--- 狼人杀助手历史对局库（MySQL 8+）
--- 手工建库（若尚未创建）：
-CREATE DATABASE IF NOT EXISTS werewolf_assistant
-    CHARACTER SET utf8mb4
-    COLLATE utf8mb4_unicode_ci;
+-- ============================================================
+-- 狼人杀AI助手 - 数据库建表脚本 (MySQL 8.0+)
+-- 生成时间: 2026-05-17
+-- ============================================================
 
-USE werewolf_assistant;
+-- 创建数据库（如需）
+-- CREATE DATABASE IF NOT EXISTS werewolf_assistant
+--   DEFAULT CHARACTER SET utf8mb4
+--   DEFAULT COLLATE utf8mb4_unicode_ci;
+--
+-- USE werewolf_assistant;
 
--- ----------------------------
--- 对局主表：一局游戏一条记录
--- ----------------------------
-CREATE TABLE IF NOT EXISTS werewolf_game (
-    id                  BIGINT          NOT NULL AUTO_INCREMENT COMMENT '主键',
-    session_uuid        VARCHAR(64)     NOT NULL COMMENT '会话/客户端标识，可续局',
-    total_players       INT             NULL COMMENT '总人数',
-    game_mode           VARCHAR(128)    NULL COMMENT '模式名称',
-    board_template_id   VARCHAR(64)     NULL COMMENT '板子模板ID',
-    my_player_id        INT             NULL COMMENT '我是几号',
-    my_role_hint        VARCHAR(64)     NULL COMMENT '我的身份提示',
-    winning_objective   VARCHAR(512)    NULL COMMENT '胜利目标描述',
-    role_composition_json TEXT          NULL COMMENT '角色构成 JSON 字符串，如 {"狼人":2,"平民":2}',
-    status              VARCHAR(32)     NOT NULL DEFAULT 'ACTIVE' COMMENT 'ACTIVE=进行中 CLOSED=已结束',
-    outcome_narrative   TEXT            NULL COMMENT '赛后结果叙述',
-    created_at          DATETIME(6)     NOT NULL COMMENT '创建时间',
-    updated_at          DATETIME(6)     NOT NULL COMMENT '更新时间',
+-- ============================================================
+-- 1. 历史对局表
+-- ============================================================
+DROP TABLE IF EXISTS werewolf_snapshot;
+DROP TABLE IF EXISTS werewolf_game;
+
+CREATE TABLE werewolf_game (
+    id                  BIGINT          NOT NULL AUTO_INCREMENT  COMMENT '主键ID',
+    session_uuid        VARCHAR(64)     NOT NULL                 COMMENT '会话唯一标识UUID',
+    total_players       INT             DEFAULT NULL             COMMENT '总玩家数',
+    game_mode           VARCHAR(128)    DEFAULT NULL             COMMENT '游戏模式，如12人标准局',
+    board_template_id   VARCHAR(64)     DEFAULT NULL             COMMENT '板子模板ID',
+    my_player_id        INT             DEFAULT NULL             COMMENT '我的座位号',
+    my_role_hint        VARCHAR(64)     DEFAULT NULL             COMMENT '我的身份提示',
+    winning_objective   VARCHAR(512)    DEFAULT NULL             COMMENT '胜利目标描述',
+    role_composition_json LONGTEXT      DEFAULT NULL             COMMENT '角色配置JSON',
+    status              VARCHAR(32)     NOT NULL DEFAULT 'ACTIVE' COMMENT '状态: ACTIVE/FINISHED',
+    outcome_narrative   LONGTEXT        DEFAULT NULL             COMMENT '结局叙述',
+    created_at          DATETIME(6)     NOT NULL                 COMMENT '创建时间',
+    updated_at          DATETIME(6)     NOT NULL                 COMMENT '更新时间',
+
     PRIMARY KEY (id),
     UNIQUE KEY uk_session_uuid (session_uuid),
     KEY idx_werewolf_game_created (created_at),
     KEY idx_werewolf_game_status (status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='狼人杀对局';
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='狼人杀-历史对局表';
 
--- ----------------------------
--- 快照表：每轮/每次分析保存完整请求体 JSON，便于复盘与概率曲线
--- ----------------------------
-CREATE TABLE IF NOT EXISTS werewolf_snapshot (
-    id              BIGINT          NOT NULL AUTO_INCREMENT COMMENT '主键',
-    game_id         BIGINT          NOT NULL COMMENT '对局ID',
-    round_number    INT             NULL COMMENT '轮次（可选）',
-    phase_label     VARCHAR(128)    NULL COMMENT '阶段描述（可选）',
-    snapshot_type   VARCHAR(32)     NOT NULL DEFAULT 'STATE' COMMENT 'STATE=局势快照 ANALYSIS=分析后等',
-    request_payload LONGTEXT        NOT NULL COMMENT 'WerewolfAnalysisRequest 完整 JSON',
-    created_at      DATETIME(6)     NOT NULL COMMENT '写入时间',
+
+-- ============================================================
+-- 2. 对局快照表
+-- ============================================================
+CREATE TABLE werewolf_snapshot (
+    id                  BIGINT          NOT NULL AUTO_INCREMENT  COMMENT '主键ID',
+    game_id             BIGINT          NOT NULL                 COMMENT '关联对局ID',
+    round_number        INT             DEFAULT NULL             COMMENT '轮次编号',
+    phase_label         VARCHAR(128)    DEFAULT NULL             COMMENT '阶段标签，如白天发言/投票',
+    snapshot_type       VARCHAR(32)     NOT NULL DEFAULT 'STATE' COMMENT '快照类型: STATE/ANALYSIS',
+    request_payload     LONGTEXT        NOT NULL                 COMMENT '请求载荷JSON',
+    created_at          DATETIME(6)     NOT NULL                 COMMENT '创建时间',
+
     PRIMARY KEY (id),
     KEY idx_snapshot_game_time (game_id, created_at),
-    CONSTRAINT fk_werewolf_snapshot_game
-        FOREIGN KEY (game_id) REFERENCES werewolf_game (id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='对局局势快照';
+    CONSTRAINT fk_snapshot_game FOREIGN KEY (game_id)
+        REFERENCES werewolf_game (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='狼人杀-对局快照表';
 
--- ----------------------------
--- live session table
--- ----------------------------
-CREATE TABLE IF NOT EXISTS werewolf_live_session (
-    id                  BIGINT          NOT NULL AUTO_INCREMENT,
-    session_uuid        VARCHAR(64)     NOT NULL,
-    total_players       INT             NULL,
-    game_mode           VARCHAR(128)    NULL,
-    my_player_id        INT             NULL,
-    my_role_hint        VARCHAR(64)     NULL,
-    current_speaker_id  INT             NULL,
-    status              VARCHAR(32)     NOT NULL DEFAULT 'ACTIVE',
-    started_at          DATETIME(6)     NOT NULL,
-    updated_at          DATETIME(6)     NOT NULL,
+
+-- ============================================================
+-- 3. 实时会话表
+-- ============================================================
+DROP TABLE IF EXISTS werewolf_live_event;
+
+CREATE TABLE werewolf_live_session (
+    id                  BIGINT          NOT NULL AUTO_INCREMENT  COMMENT '主键ID',
+    session_uuid        VARCHAR(64)     NOT NULL                 COMMENT '会话唯一标识UUID',
+    total_players       INT             DEFAULT NULL             COMMENT '总玩家数',
+    game_mode           VARCHAR(128)    DEFAULT NULL             COMMENT '游戏模式',
+    my_player_id        INT             DEFAULT NULL             COMMENT '我的座位号',
+    my_role_hint        VARCHAR(64)     DEFAULT NULL             COMMENT '我的身份提示',
+    current_speaker_id  INT             DEFAULT NULL             COMMENT '当前发言玩家ID',
+    status              VARCHAR(32)     NOT NULL DEFAULT 'ACTIVE' COMMENT '状态: ACTIVE/FINISHED',
+    started_at          DATETIME(6)     NOT NULL                 COMMENT '开始时间',
+    updated_at          DATETIME(6)     NOT NULL                 COMMENT '更新时间',
+
     PRIMARY KEY (id),
     UNIQUE KEY uk_live_session_uuid (session_uuid),
     KEY idx_live_session_created (started_at),
     KEY idx_live_session_status (status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='狼人杀-实时会话表';
 
--- ----------------------------
--- live event table
--- ----------------------------
-CREATE TABLE IF NOT EXISTS werewolf_live_event (
-    id                  BIGINT          NOT NULL AUTO_INCREMENT,
-    session_id          BIGINT          NOT NULL,
-    event_type          VARCHAR(32)     NOT NULL,
-    speaker_player_id   INT             NULL,
-    speaker_label       VARCHAR(64)     NULL,
-    content             LONGTEXT        NOT NULL,
-    ai_payload          LONGTEXT        NULL,
-    highlight           TINYINT(1)      NOT NULL DEFAULT 0,
-    created_at          DATETIME(6)     NOT NULL,
+
+-- ============================================================
+-- 4. 实时事件表
+-- ============================================================
+CREATE TABLE werewolf_live_event (
+    id                  BIGINT          NOT NULL AUTO_INCREMENT  COMMENT '主键ID',
+    session_id          BIGINT          NOT NULL                 COMMENT '关联实时会话ID',
+    day                 INT             NOT NULL DEFAULT 1       COMMENT '游戏天数',
+    event_type          VARCHAR(32)     NOT NULL                 COMMENT '事件类型: PLAYER_SPEECH/AI_INSIGHT/SYSTEM_PROMPT',
+    speaker_player_id   INT             DEFAULT NULL             COMMENT '发言玩家座位号',
+    speaker_label       VARCHAR(64)     DEFAULT NULL             COMMENT '发言者标签，如"3号"',
+    content             LONGTEXT        NOT NULL                 COMMENT '事件内容（发言文本/AI分析）',
+    ai_payload          LONGTEXT        DEFAULT NULL             COMMENT 'AI附加数据JSON',
+    highlight           TINYINT(1)      NOT NULL DEFAULT 0       COMMENT '是否高亮: 0否1是',
+    created_at          DATETIME(6)     NOT NULL                 COMMENT '创建时间',
+
     PRIMARY KEY (id),
     KEY idx_live_event_session_time (session_id, created_at),
     KEY idx_live_event_type (event_type),
-    CONSTRAINT fk_live_event_session
-        FOREIGN KEY (session_id) REFERENCES werewolf_live_session (id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+    KEY idx_live_event_session_day (session_id, day, created_at),
+    CONSTRAINT fk_live_event_session FOREIGN KEY (session_id)
+        REFERENCES werewolf_live_session (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='狼人杀-实时事件表';
