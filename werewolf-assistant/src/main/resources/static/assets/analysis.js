@@ -123,15 +123,6 @@
   var voteFrom = document.getElementById("voteFrom");
   var voteTo = document.getElementById("voteTo");
   var voteAddBtn = document.getElementById("voteAddBtn");
-  var prophetTarget = document.getElementById("prophetTarget");
-  var prophetResult = document.getElementById("prophetResult");
-  var prophetBtn = document.getElementById("prophetBtn");
-  var witchTarget = document.getElementById("witchTarget");
-  var witchAction = document.getElementById("witchAction");
-  var witchBtn = document.getElementById("witchBtn");
-  var guardTarget = document.getElementById("guardTarget");
-  var guardBtn = document.getElementById("guardBtn");
-  var skillLogList = document.getElementById("skillLogList");
   var aiSummaryText = document.getElementById("aiSummaryText");
   var mindMapArea = document.getElementById("mindMapArea");
   var fullSpeechModal = document.getElementById("fullSpeechModal");
@@ -167,6 +158,8 @@
   function highlightKeywords(text) {
     if (!text) return "";
     var escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    // 玩家编号高亮（如"3号""12号"）→ 红色
+    escaped = escaped.replace(/(\d+)\s*号/g, '<span class="kw-player">$1号</span>');
     IDENTITY_KEYWORDS.forEach(function (kw) {
       var re = new RegExp(kw, "g");
       escaped = escaped.replace(re, '<span class="kw-identity">' + kw + '</span>');
@@ -222,9 +215,7 @@
     renderSpeechList();
     renderDayNav();
     renderVoteSelects();
-    renderSkillSelects();
     renderVoteRecords();
-    renderSkillLogs();
     updateWolfProbVisibility();
 
     timerText.textContent = fmtTimer(0);
@@ -381,7 +372,7 @@
       header.appendChild(name);
       header.appendChild(eyeBtn);
 
-      // 发言预览
+      // 发言预览（简略，只显示最后一段的截断摘要）
       var body = document.createElement("div");
       body.className = "pcard-body" + (history.length === 0 ? " empty" : "");
       if (isRecording && isTranscribing) {
@@ -389,8 +380,9 @@
       } else if (isRecording) {
         body.textContent = "正在录音...";
       } else if (history.length > 0) {
+        // 简略：截取最后一段话的前40字作为摘要
         var preview = history[history.length - 1];
-        if (preview.length > 60) preview = preview.substring(0, 60) + "...";
+        if (preview.length > 40) preview = preview.substring(0, 40) + "...";
         body.innerHTML = highlightKeywords(preview);
       } else {
         body.textContent = alive ? "等待发言..." : "已出局";
@@ -441,7 +433,7 @@
 
       var micBtn = document.createElement("button");
       micBtn.className = "pcard-mic" + (isRecording ? " on" : "") + (!alive ? " dead-mic" : "");
-      micBtn.textContent = isRecording ? "●" : "🎙";
+      micBtn.textContent = isRecording ? "●" : "🎤";
       micBtn.addEventListener("click", (function (pid) {
         return function (e) {
           e.stopPropagation();
@@ -608,7 +600,7 @@
      投票记录
   ===================================================== */
   function renderVoteSelects() {
-    [voteFrom, voteTo, prophetTarget, witchTarget, guardTarget].forEach(function (sel) {
+    [voteFrom, voteTo].forEach(function (sel) {
       if (!sel) return;
       var wasVal = sel.value;
       sel.innerHTML = "<option value=''>-</option>";
@@ -661,61 +653,6 @@
       voteRecords.push({ from: parseInt(from), to: parseInt(to), day: currentDay });
       renderVoteRecords();
       setHint(from + "号投票给" + to + "号，已记录。");
-    });
-  }
-
-  /* =====================================================
-     技能记录
-  ===================================================== */
-  function renderSkillSelects() {
-    renderVoteSelects();
-  }
-
-  function renderSkillLogs() {
-    if (!skillLogList) return;
-    if (skillLogs.length === 0) {
-      skillLogList.innerHTML = "";
-      return;
-    }
-    skillLogList.innerHTML = skillLogs.slice(-5).map(function (s) {
-      var text = typeof s === "string" ? s : (s && s.text ? s.text : "");
-      return "<div style='font-size:11px;color:#9eb3d7;margin-bottom:2px;'>· " + text + "</div>";
-    }).join("");
-  }
-
-  function addSkillLog(text) {
-    skillLogs.push({ text: text, day: currentDay });
-    renderSkillLogs();
-  }
-
-  if (prophetBtn) {
-    prophetBtn.addEventListener("click", function () {
-      var target = prophetTarget ? prophetTarget.value : "";
-      var result = prophetResult ? prophetResult.value : "金水";
-      if (!target) { setHint("请选择验人目标"); return; }
-      playerRoles[parseInt(target)] = result === "金水" ? "好人" : "查杀";
-      addSkillLog("预言家验 " + target + "号 → " + result);
-      renderSpeechList();
-      setHint("预言家验了" + target + "号，" + result);
-    });
-  }
-
-  if (witchBtn) {
-    witchBtn.addEventListener("click", function () {
-      var target = witchTarget ? witchTarget.value : "";
-      var action = witchAction ? witchAction.value : "解药";
-      if (!target) { setHint("请选择女巫目标"); return; }
-      addSkillLog("女巫对 " + target + "号 使用了" + action);
-      setHint("女巫" + (action === "解药" ? "解救了" : "毒掉了") + target + "号");
-    });
-  }
-
-  if (guardBtn) {
-    guardBtn.addEventListener("click", function () {
-      var target = guardTarget ? guardTarget.value : "";
-      if (!target) { setHint("请选择守卫目标"); return; }
-      addSkillLog("守卫今晚守护了 " + target + "号");
-      setHint("守卫守护了" + target + "号");
     });
   }
 
@@ -933,6 +870,9 @@
       return;
     }
 
+    // 每3秒产生一次数据，避免长录音丢失
+    var timeslice = 3000;
+
     mediaRecorder.ondataavailable = function (e) {
       if (e.data && e.data.size > 0) audioChunks.push(e.data);
     };
@@ -961,6 +901,11 @@
         var base64Audio = reader.result; // data:audio/webm;base64,...
         callBackendAsr(base64Audio);
       };
+      reader.onerror = function () {
+        console.error("FileReader error");
+        isTranscribing = false;
+        if (running) startMediaRecorder();
+      };
       reader.readAsDataURL(blob);
     };
 
@@ -968,12 +913,20 @@
       console.error("MediaRecorder error", e);
       setHint("录音出错，尝试重新开始...");
       isTranscribing = false;
-      if (running) startMediaRecorder();
+      if (running) {
+        // 延迟重启，避免频繁出错
+        setTimeout(function () { if (running) startMediaRecorder(); }, 500);
+      }
     };
 
     recordingStartTime = Date.now();
     lastVoiceAt = Date.now();
-    mediaRecorder.start();
+    try {
+      mediaRecorder.start(timeslice);
+    } catch (e) {
+      console.error("mediaRecorder.start error", e);
+      setHint("启动录音失败，请重试");
+    }
   }
 
   /** 停止 MediaRecorder */
@@ -1290,14 +1243,31 @@
 
   async function initAudioResources() {
     if (resourcesReady) return;
-    audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    var source = audioCtx.createMediaStreamSource(audioStream);
-    analyserNode = audioCtx.createAnalyser();
-    analyserNode.fftSize = 2048;
-    source.connect(analyserNode);
-    setupVad();
-    resourcesReady = true;
+    try {
+      audioStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
+    } catch (err) {
+      console.error("getUserMedia error:", err);
+      setHint("无法获取麦克风权限，请在浏览器设置中允许麦克风访问");
+      return;
+    }
+    try {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      var source = audioCtx.createMediaStreamSource(audioStream);
+      analyserNode = audioCtx.createAnalyser();
+      analyserNode.fftSize = 2048;
+      source.connect(analyserNode);
+      setupVad();
+      resourcesReady = true;
+    } catch (err) {
+      console.error("AudioContext error:", err);
+      setHint("音频初始化失败，请刷新页面重试");
+    }
   }
 
   function setupVad() {
@@ -1344,12 +1314,18 @@
     selectedPlayerId = playerId;
     setStatus("实时分析中");
     await initAudioResources();
+    if (!resourcesReady) {
+      setHint("音频资源未就绪，请允许麦克风权限后重试");
+      return;
+    }
+    // iOS Safari 等：需要用户交互后恢复 AudioContext
+    if (audioCtx && audioCtx.state === "suspended") {
+      try { await audioCtx.resume(); } catch (e) { console.warn("resume AudioContext failed", e); }
+    }
     await createSessionIfNeeded();
     running = true;
     lastVoiceAt = Date.now();
     startMediaRecorder();
-    if (recBtnLabel) recBtnLabel.textContent = "REC●";
-    if (statusDot) statusDot.style.background = "#ff4d69";
     setHint("正在为 " + playerId + " 号录音。安静后自动识别。");
     renderSpeechList();
   }
@@ -1529,11 +1505,15 @@
       return;
     }
     if (running && selectedPlayerId === playerId) {
+      // 点击正在录音的自己 → 暂停
       pauseListening();
       return;
     }
     if (running && selectedPlayerId && selectedPlayerId !== playerId) {
-      stopMediaRecorder(); // 停止当前录音
+      // 点击其他玩家 → 先完全停止当前录音，再开始新的
+      running = false;
+      stopMediaRecorder();
+      isTranscribing = false;
     }
     try {
       startRecordingForPlayer(playerId);
