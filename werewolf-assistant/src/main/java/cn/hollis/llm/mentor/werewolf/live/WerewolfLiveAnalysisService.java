@@ -93,6 +93,15 @@ public class WerewolfLiveAnalysisService implements InitializingBean {
         session.setMyPlayerId(request.myPlayerId() == null ? 1 : request.myPlayerId());
         session.setMyRoleHint(StringUtils.hasText(request.myRoleHint()) ? request.myRoleHint().trim() : "未知");
 
+        // 保存角色配置
+        if (request.roleComposition() != null && !request.roleComposition().isEmpty()) {
+            try {
+                session.setRoleComposition(objectMapper.writeValueAsString(request.roleComposition()));
+            } catch (Exception e) {
+                log.warn("序列化roleComposition失败", e);
+            }
+        }
+
         sessionRepository.save(session);
         return new LiveSessionResponse(session.getId(), session.getSessionUuid(), session.getStatus());
     }
@@ -498,20 +507,24 @@ public class WerewolfLiveAnalysisService implements InitializingBean {
                 ? "\n【前几天局势回顾】\n" + previousDaysSummary + "\n"
                 : "";
 
+        // 三板块输出格式
+        String threeBlockFormat = """
+                【输出格式 - 必须严格遵守】
+                用三个板块输出，每板块一行，格式如下：
+                【自称】我是XX（如实说自己的角色声明或隐匿身份）
+                【评价】对其他玩家的评价和身份猜测（如：3号像预言家，7号发言有矛盾倾向狼人）
+                【期望】接下来想怎么做（如：归票7号 / 先观望 / 弃票）
+
+                注意：每个板块控制在一句话内，总字数不超过120字。不要加其他内容。
+                """;
+
         if ("speechAdvice".equals(analysisType)) {
             return """
                     你是一个普通狼人杀玩家，正在帮我（%s号，身份：%s）想一段发言。
                     请根据场上已有发言，帮我设计一段自然、像真人说的话。
 
                     %s
-
-                    要求：
-                    1. 话术必须像真人说话，用口语、有停顿、有犹豫，不要太流畅太完美
-                    2. 不要用"综上所述""由此可见""逻辑闭环"这种书面/专业词汇
-                    3. 适当留有破绽和模糊空间，不要每句话都精准到位，真人做不到
-                    4. 长度80-150字，不要长篇大论
-                    5. 不要JSON，不要Markdown，不要编号列表
-                    6. 如果信息不够，可以说"我还没看明白"之类的，不要强行分析
+                    %s
 
                     当前情况：
                     - 模式：%s
@@ -522,21 +535,16 @@ public class WerewolfLiveAnalysisService implements InitializingBean {
                     %s
                     玩家发言记录：
                     %s
-                    """.formatted(mySeat, myRole, identityConstraint, gameMode, gamePhase, totalPlayers,
+                    """.formatted(mySeat, myRole, identityConstraint, threeBlockFormat, gameMode, gamePhase, totalPlayers,
                     dataPanelInfo, previousDaysInfo, speechRecord);
         }
 
         if ("roleAnalysis".equals(analysisType)) {
             return """
-                    你是资深狼人杀教练。请根据场上发言和数据面板信息，重点分析每个玩家的角色概率。
+                    你是资深狼人杀教练。根据场上发言分析每个玩家的角色概率。
 
                     %s
-
-                    要求：
-                    1. 分析控制在150字以内，简洁明了
-                    2. 对每个已发言玩家给出简短角色判断，未发言的标"身份未知"
-                    3. 指出关键矛盾点
-                    4. 不要JSON，不要Markdown，不要列表符号
+                    %s
 
                     当前情况：
                     - 模式：%s
@@ -548,22 +556,16 @@ public class WerewolfLiveAnalysisService implements InitializingBean {
                     %s
                     玩家发言记录：
                     %s
-                    """.formatted(identityConstraint, gameMode, gamePhase, mySeat, myRole, totalPlayers,
+                    """.formatted(identityConstraint, threeBlockFormat, gameMode, gamePhase, mySeat, myRole, totalPlayers,
                     dataPanelInfo, previousDaysInfo, speechRecord);
         }
 
         if ("voteAdvice".equals(analysisType)) {
             return """
-                    你是资深狼人杀教练。当前所有玩家发言完毕，进入投票阶段。
-                    请根据场上所有发言和数据面板信息，给出明确的投票建议。
+                    你是资深狼人杀教练。所有玩家发言完毕，给出投票建议。
 
                     %s
-
-                    要求：
-                    1. 分析控制在150字以内，简洁明了
-                    2. 给出最应该投给谁、简要理由（基于直接证据）
-                    3. 如果有多个人可选，给出优先级排序
-                    4. 不要JSON，不要Markdown，不要列表符号
+                    %s
 
                     当前情况：
                     - 模式：%s
@@ -575,13 +577,13 @@ public class WerewolfLiveAnalysisService implements InitializingBean {
                     %s
                     玩家发言记录：
                     %s
-                    """.formatted(identityConstraint, gameMode, gamePhase, mySeat, myRole, totalPlayers,
+                    """.formatted(identityConstraint, threeBlockFormat, gameMode, gamePhase, mySeat, myRole, totalPlayers,
                     dataPanelInfo, previousDaysInfo, speechRecord);
         }
 
         if ("dataPanel".equals(analysisType)) {
             return """
-                    你是资深狼人杀教练。请根据数据面板信息做简短分析并给出角色概率。
+                    你是资深狼人杀教练。根据数据面板信息做简短分析并给出角色概率。
 
                     %s
 
@@ -590,9 +592,9 @@ public class WerewolfLiveAnalysisService implements InitializingBean {
                     2. 对存活玩家给出角色概率估算
                     3. 概率格式必须如下（每行一个玩家）：
                        【概率数据】
-                       1号:狼人35% 平民40% 预言家10% 女巫5% 猎人5% 守卫5%
-                       2号:狼人30% 平民45% 预言家5% 女巫10% 猎人5% 守卫5%
-                    4. 已出局玩家概率全部标为0%
+                       1号:狼人35%% 平民40%% 预言家10%% 女巫5%% 猎人5%% 守卫5%%
+                       2号:狼人30%% 平民45%% 预言家5%% 女巫10%% 猎人5%% 守卫5%%
+                    4. 已出局玩家概率全部标为0%%
                     5. 不要JSON，不要Markdown
 
                     当前情况：
@@ -611,16 +613,10 @@ public class WerewolfLiveAnalysisService implements InitializingBean {
 
         // roundSummary 默认
         return """
-                你是资深狼人杀教练。请根据场上发言和数据面板信息，给出本轮的整体总结分析。
+                你是资深狼人杀教练。根据场上发言给出本轮总结分析。
 
                 %s
-
-                要求：
-                1. 分析控制在150字以内，简洁明了
-                2. 指出场上关键矛盾和逻辑冲突
-                3. 对发言过的人给出简短可疑度判断，未发言的标"身份未知"
-                4. 给出归票建议
-                5. 不要JSON，不要Markdown，不要列表符号
+                %s
 
                 当前情况：
                 - 模式：%s
@@ -632,7 +628,7 @@ public class WerewolfLiveAnalysisService implements InitializingBean {
                 %s
                 玩家发言记录：
                 %s
-                """.formatted(identityConstraint, gameMode, gamePhase, mySeat, myRole, totalPlayers,
+                """.formatted(identityConstraint, threeBlockFormat, gameMode, gamePhase, mySeat, myRole, totalPlayers,
                 dataPanelInfo, previousDaysInfo, speechRecord);
     }
 
@@ -883,7 +879,7 @@ public class WerewolfLiveAnalysisService implements InitializingBean {
                 session.getMyPlayerId() == null ? 1 : session.getMyPlayerId(),
                 emptyAsDefault(session.getMyRoleHint(), "未知"),
                 "提高本阵营胜率并避免被抗推",
-                defaultRoleComposition(session.getTotalPlayers()),
+                defaultRoleComposition(session.getTotalPlayers(), session.getRoleComposition()),
                 speeches,
                 "来自实时语音转写，可能混入系统播报，请优先基于玩家真实发言判断。严格禁止在没有明确证据的情况下断言任何人的具体身份。",
                 List.of(),
@@ -899,6 +895,23 @@ public class WerewolfLiveAnalysisService implements InitializingBean {
     }
 
     private Map<String, Integer> defaultRoleComposition(Integer totalPlayers) {
+        return defaultRoleComposition(totalPlayers, null);
+    }
+
+    private Map<String, Integer> defaultRoleComposition(Integer totalPlayers, String roleCompositionJson) {
+        // 优先使用前端传递的角色配置
+        if (StringUtils.hasText(roleCompositionJson)) {
+            try {
+                @SuppressWarnings("unchecked")
+                Map<String, Integer> parsed = objectMapper.readValue(roleCompositionJson, Map.class);
+                if (parsed != null && !parsed.isEmpty()) {
+                    return parsed;
+                }
+            } catch (Exception e) {
+                log.warn("解析roleComposition JSON失败", e);
+            }
+        }
+        // 降级：根据人数推断
         int players = totalPlayers == null ? 12 : totalPlayers;
         Map<String, Integer> role = new LinkedHashMap<>();
         if (players <= 6) {

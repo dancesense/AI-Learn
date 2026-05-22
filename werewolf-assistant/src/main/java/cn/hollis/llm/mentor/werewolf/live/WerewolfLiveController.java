@@ -40,7 +40,7 @@ public class WerewolfLiveController {
     @PostMapping("/sessions")
     public LiveSessionResponse createSession(@RequestBody(required = false) CreateLiveSessionRequest request) {
         CreateLiveSessionRequest safeReq = request == null
-                ? new CreateLiveSessionRequest(null, 12, "12人标准局", 1, "未知")
+                ? new CreateLiveSessionRequest(null, 12, "12人标准局", 1, "未知", null)
                 : request;
         return liveAnalysisService.createSession(safeReq);
     }
@@ -53,7 +53,7 @@ public class WerewolfLiveController {
                                         @RequestBody LiveChunkRequest request) {
         LiveChunkRequest safeReq = request == null
                 ? new LiveChunkRequest("", "白天发言", null, null, "未知", "roundSummary", 1,
-                        java.util.List.of(), java.util.List.of(), java.util.Map.of(), java.util.Map.of(), "", 12)
+                        java.util.List.of(), java.util.List.of(), java.util.Map.of(), java.util.Map.of(), "", 12, null)
                 : request;
         String transcript = safeReq.transcript() == null ? "" : safeReq.transcript();
         log.info("[save-speech] sessionId={}, day={}, speaker={}, textLen={}, preview={}",
@@ -71,7 +71,7 @@ public class WerewolfLiveController {
                                             @RequestBody LiveChunkRequest request) {
         LiveChunkRequest safeReq = request == null
                 ? new LiveChunkRequest("", "白天发言", null, null, "未知", "roundSummary", 1,
-                        java.util.List.of(), java.util.List.of(), java.util.Map.of(), java.util.Map.of(), "", 12)
+                        java.util.List.of(), java.util.List.of(), java.util.Map.of(), java.util.Map.of(), "", 12, null)
                 : request;
         String transcript = safeReq.transcript() == null ? "" : safeReq.transcript();
         log.info("[live-chunk] sessionId={}, day={}, phase={}, speaker={}, silenceSeconds={}, textLen={}, preview={}",
@@ -91,7 +91,7 @@ public class WerewolfLiveController {
                             HttpServletResponse response) throws IOException {
         LiveChunkRequest safeReq = request == null
                 ? new LiveChunkRequest("", "白天发言", null, null, "未知", "roundSummary", 1,
-                        java.util.List.of(), java.util.List.of(), java.util.Map.of(), java.util.Map.of(), "", 12)
+                        java.util.List.of(), java.util.List.of(), java.util.Map.of(), java.util.Map.of(), "", 12, null)
                 : request;
         String transcript = safeReq.transcript() == null ? "" : safeReq.transcript();
         log.info("[stream-chunk] sessionId={}, day={}, phase={}, speaker={}, analysisType={}, textLen={}, preview={}",

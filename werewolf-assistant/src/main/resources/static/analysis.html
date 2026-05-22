@@ -330,6 +330,48 @@
       background: var(--line);
       margin: 10px 0;
     }
+    /* 三板块样式 */
+    .three-blocks {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .three-blocks .block-claim,
+    .three-blocks .block-eval,
+    .three-blocks .block-expect {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+    .three-blocks .block-claim {
+      background: rgba(255,188,45,0.08);
+      border-left: 3px solid #ffbc2d;
+    }
+    .three-blocks .block-eval {
+      background: rgba(100,180,255,0.08);
+      border-left: 3px solid #64b4ff;
+    }
+    .three-blocks .block-expect {
+      background: rgba(255,100,80,0.08);
+      border-left: 3px solid #ff6450;
+    }
+    .three-blocks .block-label {
+      flex-shrink: 0;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .block-claim .block-label { color: #ffbc2d; }
+    .block-eval .block-label { color: #64b4ff; }
+    .block-expect .block-label { color: #ff6450; }
+    .three-blocks .block-text {
+      color: #dde8ff;
+      word-break: break-all;
+    }
   </style>
 </head>
 <body>

@@ -31,6 +31,10 @@
     .badge-win { background: rgba(37,208,143,0.2); color: #25d08f; }
     .badge-lose { background: rgba(255,68,105,0.2); color: #ff7794; }
     .badge-ongoing { background: rgba(255,188,45,0.2); color: #ffbc2d; }
+    .custom-mode-card { grid-column: span 2; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px; }
+    .role-adj-btn:active { background: rgba(255,68,105,0.2) !important; transform: scale(0.92); }
+    #customConfigPanel { animation: slideDown 0.25s ease; }
+    @keyframes slideDown { from { opacity:0; transform:translateY(-8px); } to { opacity:1; transform:translateY(0); } }
   </style>
 </head>
 <body>
@@ -80,31 +84,54 @@
 
     <!-- 人数模式 -->
     <div class="mode-grid" id="modeGrid">
-      <div class="mode-card" data-count="6" data-name="标准六人局" data-roles="2狼 2民 1预言家 1女巫">
+      <div class="mode-card" data-count="6" data-name="标准六人局" data-roles="2狼 2民 1预言家 1女巫" data-role-json='{"狼人":2,"平民":2,"预言家":1,"女巫":1}'>
         <div class="mode-num">6</div>
         <div class="mode-name">标准六人局</div>
         <div class="mode-roles">2狼 2民<br>1预言家 1女巫</div>
       </div>
-      <div class="mode-card" data-count="6" data-name="网易六人局" data-roles="2狼 2民 1预言家 1猎人">
+      <div class="mode-card" data-count="6" data-name="网易六人局" data-roles="2狼 2民 1预言家 1猎人" data-role-json='{"狼人":2,"平民":2,"预言家":1,"猎人":1}'>
         <div class="mode-num">6</div>
         <div class="mode-name">网易六人局</div>
         <div class="mode-roles">2狼 2民<br>1预言家 1猎人</div>
       </div>
-      <div class="mode-card" data-count="9" data-name="标准九人局" data-roles="3狼 3民 1预言家 1女巫 1猎人">
+      <div class="mode-card" data-count="9" data-name="标准九人局" data-roles="3狼 3民 1预言家 1女巫 1猎人" data-role-json='{"狼人":3,"平民":3,"预言家":1,"女巫":1,"猎人":1}'>
         <div class="mode-num">9</div>
         <div class="mode-name">标准九人局</div>
         <div class="mode-roles">3狼 3民<br>1预言家 1女巫 1猎人</div>
       </div>
-      <div class="mode-card" data-count="10" data-name="标准十人局" data-roles="3狼 4民 1预言家 1猎人">
+      <div class="mode-card" data-count="10" data-name="标准十人局" data-roles="3狼 4民 1预言家 1猎人" data-role-json='{"狼人":3,"平民":4,"预言家":1,"猎人":1}'>
         <div class="mode-num">10</div>
         <div class="mode-name">标准十人局</div>
         <div class="mode-roles">3狼 4民<br>1预言家 1猎人</div>
       </div>
-      <div class="mode-card" data-count="12" data-name="标准十二人局" data-roles="3狼 1狼王 4民 1预言家 1女巫 1猎人 1守卫">
+      <div class="mode-card" data-count="12" data-name="标准十二人局" data-roles="3狼 1狼王 4民 1预言家 1女巫 1猎人 1守卫" data-role-json='{"狼人":4,"平民":4,"预言家":1,"女巫":1,"猎人":1,"守卫":1}'>
         <div class="mode-num">12</div>
         <div class="mode-name">标准十二人局</div>
         <div class="mode-roles">3狼 1狼王 4民<br>1预言家 1女巫 1猎人 1守卫</div>
       </div>
+      <!-- 自定义对局 -->
+      <div class="mode-card custom-mode-card" data-count="0" data-name="自定义对局" data-roles="" data-role-json="">
+        <div style="font-size:28px;">⚙️</div>
+        <div class="mode-name" style="margin-top:4px;">自定义对局</div>
+        <div class="mode-roles" style="font-size:11px;color:#7a96c4;">自由配置人数与角色</div>
+      </div>
+    </div>
+
+    <!-- 自定义配置面板（仅选中自定义时显示） -->
+    <div id="customConfigPanel" style="display:none;margin-bottom:16px;">
+      <div style="font-size:14px;font-weight:700;color:#c8d8f8;margin-bottom:10px;">👥 人数设置</div>
+      <div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:14px;">
+        <button id="customCountMinus" style="width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,0.08);color:#c8d8f8;font-size:20px;font-weight:700;cursor:pointer;">−</button>
+        <input type="number" id="customCountInput" value="8" min="4" max="18" style="width:56px;text-align:center;background:rgba(255,255,255,0.08);border:1px solid var(--line);border-radius:10px;color:var(--text);font-size:24px;font-weight:700;padding:6px;" />
+        <button id="customCountPlus" style="width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,0.08);color:#c8d8f8;font-size:20px;font-weight:700;cursor:pointer;">+</button>
+        <span style="font-size:13px;color:var(--subtext);">人</span>
+      </div>
+
+      <div style="font-size:14px;font-weight:700;color:#c8d8f8;margin-bottom:8px;">🎭 角色配置</div>
+      <div id="customRoleList" style="display:flex;flex-direction:column;gap:8px;margin-bottom:10px;"></div>
+
+      <!-- 配置汇总 -->
+      <div id="customSummary" style="font-size:12px;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid var(--line);margin-bottom:6px;"></div>
     </div>
 
     <!-- 我的身份 -->
@@ -141,6 +168,42 @@
   var selectedCount = 12;
   var selectedRole = "未知";
   var selectedSeat = 1;
+  var isCustomMode = false;
+
+  // 自定义角色配置：{角色名: 数量}
+  var ALL_ROLES = [
+    { name: "狼人", emoji: "🐺", default: 2, min: 0, max: 8, color: "#ff6080" },
+    { name: "狼王", emoji: "👑", default: 0, min: 0, max: 2, color: "#e040a0" },
+    { name: "预言家", emoji: "🔮", default: 1, min: 0, max: 2, color: "#ffd83a" },
+    { name: "女巫", emoji: "🧪", default: 1, min: 0, max: 2, color: "#c39eff" },
+    { name: "猎人", emoji: "🏹", default: 1, min: 0, max: 2, color: "#4fd8a0" },
+    { name: "守卫", emoji: "🛡️", default: 0, min: 0, max: 2, color: "#6ecbff" },
+    { name: "平民", emoji: "👤", default: 2, min: 0, max: 10, color: "#b0bec5" }
+  ];
+  var customRoleConfig = {}; // {角色名: 数量}
+
+  function initCustomRoleConfig() {
+    var n = parseInt(document.getElementById("customCountInput").value) || 8;
+    customRoleConfig = autoAssignRoles(n);
+  }
+
+  /** 根据人数自动分配角色 */
+  function autoAssignRoles(n) {
+    var config = {};
+    // 基础规则：狼人≈1/3，预言家1，女巫1（6人以上），猎人1（9人以上），守卫1（12人以上），其余平民
+    var wolfCount = Math.max(2, Math.round(n / 3));
+    if (n < 6) wolfCount = 1;
+    var villagerCount = n - wolfCount;
+    config["狼人"] = wolfCount;
+    config["狼王"] = 0;
+    config["预言家"] = 1;
+    villagerCount -= 1;
+    if (n >= 6) { config["女巫"] = 1; villagerCount -= 1; } else { config["女巫"] = 0; }
+    if (n >= 9) { config["猎人"] = 1; villagerCount -= 1; } else { config["猎人"] = 0; }
+    if (n >= 12) { config["守卫"] = 1; villagerCount -= 1; } else { config["守卫"] = 0; }
+    config["平民"] = Math.max(0, villagerCount);
+    return config;
+  }
 
   // Date display
   var now = new Date();
@@ -185,15 +248,138 @@
     });
     card.classList.add("selected");
     var count = parseInt(card.getAttribute("data-count") || "0");
+    var customPanel = document.getElementById("customConfigPanel");
+
     if (count === 0) {
-      // Custom
-      var customVal = parseInt(document.getElementById("customCountInput").value) || 12;
+      // 自定义模式
+      isCustomMode = true;
+      customPanel.style.display = "block";
+      var customVal = parseInt(document.getElementById("customCountInput").value) || 8;
       selectedCount = customVal;
+      customRoleConfig = autoAssignRoles(selectedCount);
+      renderCustomRoleList();
+      updateCustomSummary();
     } else {
+      isCustomMode = false;
+      customPanel.style.display = "none";
       selectedCount = count;
     }
+
+    // 更新座位号上限
+    var seatInput = document.getElementById("mySeatInput");
+    if (seatInput) seatInput.max = selectedCount;
   }
 
+  // ===== 自定义配置交互 =====
+
+  // 人数加减
+  document.getElementById("customCountMinus").addEventListener("click", function () {
+    var input = document.getElementById("customCountInput");
+    var val = parseInt(input.value) || 8;
+    if (val > 4) { input.value = val - 1; onCustomCountChange(); }
+  });
+  document.getElementById("customCountPlus").addEventListener("click", function () {
+    var input = document.getElementById("customCountInput");
+    var val = parseInt(input.value) || 8;
+    if (val < 18) { input.value = val + 1; onCustomCountChange(); }
+  });
+  document.getElementById("customCountInput").addEventListener("change", function () {
+    var val = parseInt(this.value) || 8;
+    this.value = Math.max(4, Math.min(18, val));
+    onCustomCountChange();
+  });
+
+  function onCustomCountChange() {
+    selectedCount = parseInt(document.getElementById("customCountInput").value) || 8;
+    var seatInput = document.getElementById("mySeatInput");
+    if (seatInput) seatInput.max = selectedCount;
+    // 人数变化时自动重分配角色
+    customRoleConfig = autoAssignRoles(selectedCount);
+    renderCustomRoleList();
+    updateCustomSummary();
+  }
+
+  function renderCustomRoleList() {
+    var container = document.getElementById("customRoleList");
+    container.innerHTML = "";
+    ALL_ROLES.forEach(function (role) {
+      var count = customRoleConfig[role.name] || 0;
+      var row = document.createElement("div");
+      row.style.cssText = "display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:10px;background:rgba(255,255,255,0.04);border:1px solid var(--line);";
+      row.innerHTML =
+        '<span style="font-size:16px;min-width:22px;">' + role.emoji + '</span>' +
+        '<span style="font-size:13px;font-weight:700;color:' + role.color + ';min-width:46px;">' + role.name + '</span>' +
+        '<span style="flex:1;"></span>' +
+        '<button class="role-adj-btn" data-role="' + role.name + '" data-dir="-1" style="width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:rgba(255,255,255,0.08);color:#c8d8f8;font-size:16px;font-weight:700;cursor:pointer;">−</button>' +
+        '<span class="role-count-display" data-role="' + role.name + '" style="font-size:18px;font-weight:700;color:' + role.color + ';min-width:24px;text-align:center;">' + count + '</span>' +
+        '<button class="role-adj-btn" data-role="' + role.name + '" data-dir="1" style="width:30px;height:30px;border-radius:8px;border:1px solid var(--line);background:rgba(255,255,255,0.08);color:#c8d8f8;font-size:16px;font-weight:700;cursor:pointer;">+</button>';
+      container.appendChild(row);
+    });
+
+    // 绑定加减按钮
+    container.querySelectorAll(".role-adj-btn").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var roleName = this.getAttribute("data-role");
+        var dir = parseInt(this.getAttribute("data-dir"));
+        var roleDef = ALL_ROLES.find(function (r) { return r.name === roleName; });
+        if (!roleDef) return;
+        var cur = customRoleConfig[roleName] || 0;
+        var newVal = cur + dir;
+        newVal = Math.max(roleDef.min, Math.min(roleDef.max, newVal));
+        customRoleConfig[roleName] = newVal;
+        // 更新显示
+        var display = container.querySelector('.role-count-display[data-role="' + roleName + '"]');
+        if (display) display.textContent = newVal;
+        updateCustomSummary();
+      });
+    });
+  }
+
+  function getCustomRoleTotal() {
+    var total = 0;
+    ALL_ROLES.forEach(function (r) { total += (customRoleConfig[r.name] || 0); });
+    return total;
+  }
+
+  function getCustomRoleJson() {
+    var obj = {};
+    ALL_ROLES.forEach(function (r) {
+      var c = customRoleConfig[r.name] || 0;
+      if (c > 0) obj[r.name] = c;
+    });
+    return JSON.stringify(obj);
+  }
+
+  function getCustomRoleDesc() {
+    var parts = [];
+    ALL_ROLES.forEach(function (r) {
+      var c = customRoleConfig[r.name] || 0;
+      if (c > 0) parts.push(c + r.emoji + r.name.charAt(0));
+    });
+    return parts.join(" ");
+  }
+
+  function updateCustomSummary() {
+    var total = getCustomRoleTotal();
+    var target = selectedCount;
+    var diff = target - total;
+    var summaryEl = document.getElementById("customSummary");
+    var color, icon, text;
+    if (diff === 0) {
+      color = "#25d08f";
+      icon = "✅";
+      text = "配置完成！共 " + target + " 人，角色已全部分配。";
+    } else if (diff > 0) {
+      color = "#ffbc2d";
+      icon = "⚠️";
+      text = "还需分配 " + diff + " 个角色（当前 " + total + "/" + target + "）";
+    } else {
+      color = "#ff6080";
+      icon = "❌";
+      text = "角色超出 " + (-diff) + " 个（当前 " + total + "/" + target + "），请减少角色";
+    }
+    summaryEl.innerHTML = '<span style="color:' + color + ';">' + icon + " " + text + '</span>';
+  }
 
   // Role chips
   document.getElementById("roleGrid").addEventListener("click", function (e) {
@@ -212,8 +398,37 @@
 
   // Start game
   document.getElementById("startGameBtn").addEventListener("click", function () {
+    if (isCustomMode) {
+      // 验证自定义配置
+      var total = getCustomRoleTotal();
+      if (total !== selectedCount) {
+        var diff = selectedCount - total;
+        if (diff > 0) {
+          setHint("还需分配 " + diff + " 个角色才能开始！");
+        } else {
+          setHint("角色数量超出 " + (-diff) + " 个，请减少角色！");
+        }
+        return;
+      }
+      // 检查至少有1个狼人
+      var wolfCount = (customRoleConfig["狼人"] || 0) + (customRoleConfig["狼王"] || 0);
+      if (wolfCount < 1) {
+        setHint("至少需要1个狼人阵营角色！");
+        return;
+      }
+    }
+
     var selectedCard = document.querySelector(".mode-card.selected");
-    var modeName = selectedCard ? (selectedCard.getAttribute("data-name") || selectedCount + "人局") : selectedCount + "人局";
+    var modeName, roleJson;
+
+    if (isCustomMode) {
+      modeName = "自定义" + selectedCount + "人局";
+      roleJson = getCustomRoleJson();
+    } else {
+      modeName = selectedCard ? (selectedCard.getAttribute("data-name") || selectedCount + "人局") : selectedCount + "人局";
+      roleJson = selectedCard ? (selectedCard.getAttribute("data-role-json") || "") : "";
+    }
+
     var seatVal = parseInt(document.getElementById("mySeatInput").value) || 1;
     selectedSeat = Math.max(1, Math.min(seatVal, selectedCount));
     // Store config in sessionStorage
@@ -221,6 +436,7 @@
     sessionStorage.setItem("werewolf_role", selectedRole);
     sessionStorage.setItem("werewolf_mode", modeName);
     sessionStorage.setItem("werewolf_seat", selectedSeat);
+    sessionStorage.setItem("werewolf_role_composition", roleJson);
     document.getElementById("modeModal").classList.add("hidden");
     window.location.href = "/analysis.html";
   });
@@ -236,6 +452,19 @@
       .catch(function () {
         document.getElementById("totalGames").textContent = "0";
       });
+  }
+
+  function setHint(text) {
+    // 简单提示：用弹窗顶部的副标题区域临时显示
+    var subtitle = document.querySelector(".modal-subtitle");
+    if (subtitle) {
+      subtitle.textContent = text;
+      subtitle.style.color = "#ff7794";
+      setTimeout(function () {
+        subtitle.textContent = "选择人数及配置，支持自定义";
+        subtitle.style.color = "";
+      }, 2500);
+    }
   }
 
   // Load history

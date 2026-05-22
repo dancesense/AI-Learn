@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Index;
+import jakarta.persistence.Lob;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -54,6 +55,11 @@ public class WerewolfLiveSessionEntity {
 
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    /** 角色配置JSON，如 {"狼人":2,"平民":2,"预言家":1,"猎人":1} */
+    @Lob
+    @Column(name = "role_composition", columnDefinition = "TEXT")
+    private String roleComposition;
 
     @PrePersist
     void prePersist() {
@@ -136,6 +142,14 @@ public class WerewolfLiveSessionEntity {
 
     public LocalDateTime getUpdatedAt() {
         return updatedAt;
+    }
+
+    public String getRoleComposition() {
+        return roleComposition;
+    }
+
+    public void setRoleComposition(String roleComposition) {
+        this.roleComposition = roleComposition;
     }
 }
 

@@ -16,7 +16,8 @@ public record LiveChunkRequest(
         Map<Integer, Boolean> playerAlive,
         Map<Integer, String> playerRoles,
         String previousDaysSummary,
-        Integer totalPlayers
+        Integer totalPlayers,
+        Map<String, Integer> roleComposition
 ) {
     public LiveChunkRequest {
         if (analysisType == null || analysisType.isBlank()) {
@@ -42,6 +43,9 @@ public record LiveChunkRequest(
         }
         if (totalPlayers == null || totalPlayers < 1) {
             totalPlayers = 12;
+        }
+        if (roleComposition == null) {
+            roleComposition = Map.of();
         }
     }
 }
