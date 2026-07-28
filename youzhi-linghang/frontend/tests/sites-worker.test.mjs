@@ -42,27 +42,45 @@ test("falls back to index.html for an unknown app route", async () => {
 });
 
 test("does not turn missing API or write requests into the app shell", async () => {
-  for (const request of [
-    new Request("https://example.test/api/missing", { headers: { accept: "application/json" } }),
-    new Request("https://example.test/flow", { method: "POST", headers: { accept: "text/html" } }),
-  ]) {
-    let calls = 0;
-    const response = await worker.fetch(request, {
+  let apiAssetCalls = 0;
+  const apiResponse = await worker.fetch(
+    new Request("https://example.test/api/missing", {
+      headers: { accept: "application/json" },
+    }),
+    {
       ASSETS: {
         fetch: async () => {
-          calls += 1;
+          apiAssetCalls += 1;
           return new Response("missing", { status: 404 });
         },
       },
-    });
+    },
+  );
+  assert.equal(apiResponse.status, 503);
+  assert.equal(apiAssetCalls, 0);
 
-    assert.equal(response.status, 404);
-    assert.equal(calls, 1);
-  }
+  let writeAssetCalls = 0;
+  const writeResponse = await worker.fetch(
+    new Request("https://example.test/flow", {
+      method: "POST",
+      headers: { accept: "text/html" },
+    }),
+    {
+      ASSETS: {
+        fetch: async () => {
+          writeAssetCalls += 1;
+          return new Response("missing", { status: 404 });
+        },
+      },
+    },
+  );
+  assert.equal(writeResponse.status, 404);
+  assert.equal(writeAssetCalls, 1);
 });
 
 test("emits the files required by Sites packaging", async () => {
   await access(new URL("../dist/client/index.html", import.meta.url));
   await access(new URL("../dist/server/index.js", import.meta.url));
   await access(new URL("../dist/.openai/hosting.json", import.meta.url));
+  await access(new URL("../dist/.openai/drizzle/0000_loving_silverclaw.sql", import.meta.url));
 });
