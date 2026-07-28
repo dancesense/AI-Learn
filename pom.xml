@@ -29,6 +29,7 @@
         <module>langchain4j</module>
         <module>agent/dodo-agent</module>
         <module>werewolf-assistant</module>
+        <module>youzhi-linghang</module>
     </modules>
 
     <properties>
